@@ -32,6 +32,14 @@ button { -webkit-tap-highlight-color: transparent; }
 .page-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .eyebrow { font-size: 10px; font-weight: 800; color: var(--purple-2); letter-spacing: .9px; }
 .context-row select { max-width: 128px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--text); padding: 9px 28px 9px 10px; font-size: 10px; font-weight: 700; }
+.role-badge { max-width: 128px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); padding: 9px 11px; font-size: 9px; font-weight: 800; }
+
+.auth-screen { min-height: 100%; padding: 94px 20px calc(var(--device-safe-area-bottom, 34px) + 30px); display: grid; align-content: center; gap: 26px; background: radial-gradient(circle at 90% 5%, color-mix(in srgb, var(--blue) 10%, transparent), transparent 30%), var(--bg); }
+.auth-brand { display: flex; align-items: center; gap: 13px; }.auth-brand > div { display: grid; }.auth-brand strong { font-size: 24px; letter-spacing: -.7px; }.auth-brand small { color: var(--muted); font-size: 11px; }
+.auth-logo { width: 60px; height: 60px; border-radius: 17px; background: #fff url('/brand/one-pro-logo.svg') center 28% / 245% auto no-repeat; box-shadow: 0 12px 28px #15172418; }
+.auth-card { padding: 22px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }.auth-card h1 { margin: 5px 0 7px; font-size: 27px; }.auth-card > p { margin: 0 0 20px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.auth-field { display: grid; gap: 6px; margin: 12px 0; }.auth-field span { color: var(--muted); font-size: 9px; font-weight: 700; }.auth-field input { min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--text); background: var(--surface-2); outline: none; }.auth-field input:focus { border-color: var(--purple-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--purple-2) 14%, transparent); }
+.auth-message, .auth-loading { margin-top: 11px; padding: 10px 11px; border-radius: 11px; color: var(--warning); background: var(--warning-bg); font-size: 9px; line-height: 1.45; }.auth-switch { width: 100%; margin-top: 14px; border: 0; color: var(--blue); background: transparent; font-size: 9px; font-weight: 800; }.auth-card button:disabled { opacity: .6; cursor: wait; }
 
 .focus-panel, .data-card, .progress-hero, .upload-card { background: var(--surface); border: 1px solid var(--line); border-radius: 19px; overflow: hidden; }
 .focus-head { color: white; padding: 17px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #571064, #172a67 68%, #075797); }

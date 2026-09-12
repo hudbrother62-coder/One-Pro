@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "@fontsource-variable/plus-jakarta-sans";
+import type { User } from "@supabase/supabase-js";
+import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import {
   Bell,
   CalendarBlank,
@@ -69,12 +71,37 @@ export default function Prototype() {
   const [role, setRole] = useState<Role>("PJ Kelompok");
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const previewMode = !isSupabaseConfigured || new URLSearchParams(window.location.search).get("preview") === "1";
 
   useEffect(() => {
     if ("serviceWorker" in navigator && import.meta.env.PROD) {
       navigator.serviceWorker.register("/sw.js");
     }
   }, []);
+
+  useEffect(() => {
+    if (!supabase || previewMode) return;
+    supabase.auth.getUser().then(({ data }) => {
+      setAuthUser(data.user ?? null);
+      setAuthReady(true);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+      setAuthReady(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, [previewMode]);
+
+  useEffect(() => {
+    if (!supabase || !authUser || previewMode) return;
+    supabase.from("memberships").select("role").eq("user_id", authUser.id).eq("is_active", true).limit(1).maybeSingle()
+      .then(({ data }) => {
+        const roles: Record<string, Role> = { super_admin: "Super Admin", admin_daerah: "Admin Daerah", admin_desa: "Admin Desa", pj_kelompok: "PJ Kelompok", pengajar: "Pengajar" };
+        if (data?.role && roles[data.role]) setRole(roles[data.role]);
+      });
+  }, [authUser, previewMode]);
 
   const go = (next: Screen) => {
     setScreen(next);
@@ -85,6 +112,10 @@ export default function Prototype() {
     setToast(message);
     window.setTimeout(() => setToast(null), 2600);
   };
+
+  if (!previewMode && (!authReady || !authUser)) {
+    return <div className={cx("one-pro-shell", dark && "is-dark")}><MobileScroll className="app-screen"><AuthScreen ready={authReady} /></MobileScroll></div>;
+  }
 
   return (
     <div className={cx("one-pro-shell", dark && "is-dark")}>
@@ -105,7 +136,7 @@ export default function Prototype() {
 
       <MobileScroll className="app-screen">
         <main className="screen-content" data-testid="one-pro-app">
-          {screen === "home" ? <Home role={role} setRole={setRole} go={go} /> : null}
+          {screen === "home" ? <Home role={role} setRole={setRole} go={go} previewMode={previewMode} /> : null}
           {screen === "agenda" ? <Agenda notify={notify} go={go} /> : null}
           {screen === "attendance" ? <AttendanceScreen notify={notify} /> : null}
           {screen === "journal" ? <Journal notify={notify} /> : null}
@@ -114,7 +145,7 @@ export default function Prototype() {
           {screen === "reports" ? <Reports notify={notify} /> : null}
           {screen === "team" ? <Team notify={notify} /> : null}
           {screen === "chat" ? <Chat notify={notify} /> : null}
-          {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} /> : null}
+          {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => supabase?.auth.signOut()} /> : null}
         </main>
       </MobileScroll>
 
@@ -144,13 +175,13 @@ function PageHeader({ title, subtitle, action }: { title: string; subtitle?: str
   return <div className="page-heading"><div><h1>{title}</h1>{subtitle ? <p>{subtitle}</p> : null}</div>{action}</div>;
 }
 
-function Home({ role, setRole, go }: { role: Role; setRole: (role: Role) => void; go: (screen: Screen) => void }) {
+function Home({ role, setRole, go, previewMode }: { role: Role; setRole: (role: Role) => void; go: (screen: Screen) => void; previewMode: boolean }) {
   return <>
     <div className="context-row">
       <div><span className="eyebrow">MALANG TIMUR</span><h1>{role === "Pengajar" ? "Kelas hari ini" : role === "PJ Kelompok" ? "Mangliawan Utara" : "Pantauan wilayah"}</h1></div>
-      <select value={role} onChange={(event) => setRole(event.target.value as Role)} aria-label="Pratinjau peran">
+      {previewMode ? <select value={role} onChange={(event) => setRole(event.target.value as Role)} aria-label="Pratinjau peran">
         {(["Pengajar", "PJ Kelompok", "Admin Desa", "Admin Daerah", "Super Admin"] as Role[]).map((item) => <option key={item}>{item}</option>)}
-      </select>
+      </select> : <span className="role-badge">{role}</span>}
     </div>
 
     {role === "Pengajar" || role === "PJ Kelompok" ? <OperationalHome go={go} /> : <MonitoringHome role={role} go={go} />}
@@ -336,12 +367,53 @@ function ChatRow({ initials, title, message, time, unread }: { initials: string;
   return <button className="chat-row"><Avatar initials={initials} /><span><strong>{title}</strong><small>{message}</small></span><em>{time}{unread ? <b>{unread}</b> : null}</em></button>;
 }
 
-function Settings({ dark, setDark, notify }: { dark: boolean; setDark: (value: boolean) => void; notify: (message: string) => void }) {
+function Settings({ dark, setDark, notify, onSignOut }: { dark: boolean; setDark: (value: boolean) => void; notify: (message: string) => void; onSignOut: () => void }) {
   return <>
     <PageHeader title="Pengaturan" subtitle="Akun dan sistem One Pro" />
     <section className="data-card settings-card"><label className="switch-row"><span><strong>Mode gelap</strong><small>Sesuaikan kenyamanan tampilan</small></span><button className={cx("switch", dark && "on")} onClick={() => setDark(!dark)}><span /></button></label><ActionRow icon={<Bell />} title="Notifikasi HP" meta="Jadwal dan pengingat pukul 20.00" badge="Aktif" /><ActionRow icon={<Gear />} title="Gemini AI" meta="3 API key • rotasi otomatis" badge="Admin" /><ActionRow icon={<Database />} title="Penyimpanan" meta="Foto anak dan template PPTX" /></section>
-    <button className="danger-button" onClick={() => notify("Anda berhasil keluar dari akun")}><SignOut size={18} />Keluar akun</button>
+    <button className="danger-button" onClick={() => { onSignOut(); notify("Anda berhasil keluar dari akun"); }}><SignOut size={18} />Keluar akun</button>
   </>;
+}
+
+function AuthScreen({ ready }: { ready: boolean }) {
+  const [register, setRegister] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!supabase || !email || password.length < 8 || (register && !fullName.trim())) {
+      setMessage("Lengkapi data dan gunakan password minimal 8 karakter.");
+      return;
+    }
+    setLoading(true);
+    setMessage(null);
+    const result = register
+      ? await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName.trim() } } })
+      : await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (result.error) setMessage(result.error.message);
+    else if (register && !result.data.session) setMessage("Akun dibuat. Periksa email untuk konfirmasi sebelum masuk.");
+  };
+
+  return <main className="auth-screen">
+    <section className="auth-brand"><span className="auth-logo" /><div><strong>One Pro</strong><small>Jurnal Digital</small></div></section>
+    <section className="auth-card">
+      <span className="eyebrow">MALANG TIMUR</span>
+      <h1>{register ? "Daftar akun" : "Masuk"}</h1>
+      <p>{register ? "Akun pertama menjadi Super Admin. Anggota berikutnya masuk melalui undangan." : "Gunakan akun anggota yang telah terdaftar."}</p>
+      {!ready ? <div className="auth-loading">Memeriksa sesi…</div> : <>
+        {register ? <label className="auth-field"><span>Nama lengkap</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} autoComplete="name" /></label> : null}
+        <label className="auth-field"><span>Email</span><input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" /></label>
+        <label className="auth-field"><span>Password</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete={register ? "new-password" : "current-password"} /></label>
+        {message ? <div className="auth-message" role="status">{message}</div> : null}
+        <button className="primary-button" disabled={loading} onClick={submit}>{loading ? "Memproses…" : register ? "Buat akun" : "Masuk"}</button>
+        <button className="auth-switch" onClick={() => { setRegister(!register); setMessage(null); }}>{register ? "Sudah punya akun? Masuk" : "Belum punya akun? Daftar"}</button>
+      </>}
+    </section>
+  </main>;
 }
 
 function Field({ label, value }: { label: string; value?: string }) { return <label className="field"><span>{label}</span><KeyboardInput defaultValue={value} /></label>; }
