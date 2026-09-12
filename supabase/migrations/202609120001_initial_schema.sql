@@ -378,6 +378,39 @@ create or replace function public.can_manage_group(target_group uuid) returns bo
   )
 $$;
 
+create or replace function public.can_access_membership(target_user uuid) returns boolean language sql stable security definer set search_path = public as $$
+  select target_user = auth.uid() or public.is_super_admin() or exists(
+    select 1
+    from memberships target
+    left join groups tg on tg.id = target.group_id
+    left join villages tv on tv.id = coalesce(target.village_id, tg.village_id)
+    join memberships viewer on viewer.user_id = auth.uid() and viewer.is_active
+    where target.user_id = target_user and target.is_active and (
+      viewer.area_id = coalesce(target.area_id, tv.area_id) or
+      viewer.village_id = coalesce(target.village_id, tg.village_id) or
+      viewer.group_id = target.group_id
+    )
+  )
+$$;
+
+create or replace function public.can_manage_membership(target_role public.app_role, target_area uuid, target_village uuid, target_group uuid) returns boolean language sql stable security definer set search_path = public as $$
+  select public.is_super_admin() or exists(
+    select 1
+    from memberships viewer
+    left join groups tg on tg.id = target_group
+    left join villages tv on tv.id = coalesce(target_village, tg.village_id)
+    where viewer.user_id = auth.uid() and viewer.is_active and (
+      (viewer.role = 'admin_daerah' and target_role in ('admin_desa','pj_kelompok','pengajar') and viewer.area_id = coalesce(target_area, tv.area_id)) or
+      (viewer.role = 'admin_desa' and target_role in ('pj_kelompok','pengajar') and viewer.village_id = coalesce(target_village, tg.village_id)) or
+      (viewer.role = 'pj_kelompok' and target_role = 'pengajar' and viewer.group_id = target_group)
+    )
+  )
+$$;
+
+create or replace function public.is_thread_participant(target_thread uuid) returns boolean language sql stable security definer set search_path = public as $$
+  select exists(select 1 from chat_participants where thread_id = target_thread and user_id = auth.uid())
+$$;
+
 alter table public.areas enable row level security;
 alter table public.villages enable row level security;
 alter table public.groups enable row level security;
@@ -406,9 +439,12 @@ alter table public.notifications enable row level security;
 alter table public.invitations enable row level security;
 alter table public.audit_logs enable row level security;
 
-create policy profiles_self_read on public.profiles for select using (id = auth.uid() or public.is_super_admin());
-create policy profiles_self_update on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
-create policy memberships_self_read on public.memberships for select using (user_id = auth.uid() or public.is_super_admin());
+create policy profiles_scope_read on public.profiles for select using (public.can_access_membership(id));
+create policy profiles_self_update on public.profiles for update using (id = auth.uid() or public.is_super_admin()) with check (id = auth.uid() or public.is_super_admin());
+create policy memberships_scope_read on public.memberships for select using (public.can_access_membership(user_id));
+create policy memberships_scope_insert on public.memberships for insert with check (public.can_manage_membership(role, area_id, village_id, group_id));
+create policy memberships_scope_update on public.memberships for update using (public.can_manage_membership(role, area_id, village_id, group_id)) with check (public.can_manage_membership(role, area_id, village_id, group_id));
+create policy memberships_scope_delete on public.memberships for delete using (public.can_manage_membership(role, area_id, village_id, group_id));
 create policy notifications_own on public.notifications for select using (user_id = auth.uid());
 create policy notifications_own_update on public.notifications for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy audit_super_read on public.audit_logs for select using (public.is_super_admin());
@@ -421,28 +457,34 @@ create policy villages_member_read on public.villages for select using (
 );
 create policy groups_member_read on public.groups for select using (public.can_access_group(id));
 
-create policy classes_scope_all on public.classes for all using (public.can_access_group(group_id)) with check (public.can_manage_group(group_id));
-create policy students_scope_all on public.students for all using (public.can_access_group(group_id)) with check (public.can_manage_group(group_id));
-create policy schedules_scope_all on public.schedules for all using (public.can_access_group((select group_id from classes where id=class_id))) with check (public.can_manage_group((select group_id from classes where id=class_id)));
+create policy classes_scope_read on public.classes for select using (public.can_access_group(group_id));
+create policy classes_scope_manage on public.classes for all using (public.can_manage_group(group_id)) with check (public.can_manage_group(group_id));
+create policy students_scope_read on public.students for select using (public.can_access_group(group_id));
+create policy students_scope_manage on public.students for all using (public.can_manage_group(group_id)) with check (public.can_manage_group(group_id));
+create policy schedules_scope_read on public.schedules for select using (public.can_access_group((select group_id from classes where id=class_id)));
+create policy schedules_scope_manage on public.schedules for all using (public.can_manage_group((select group_id from classes where id=class_id))) with check (public.can_manage_group((select group_id from classes where id=class_id)));
 create policy attendance_sessions_scope_all on public.attendance_sessions for all using (public.can_access_group((select group_id from classes where id=class_id))) with check (public.can_access_group((select group_id from classes where id=class_id)));
 create policy attendance_records_scope_all on public.attendance_records for all using (public.can_access_group((select c.group_id from attendance_sessions s join classes c on c.id=s.class_id where s.id=session_id))) with check (public.can_access_group((select c.group_id from attendance_sessions s join classes c on c.id=s.class_id where s.id=session_id)));
 create policy daily_journals_scope_all on public.daily_journals for all using (public.can_access_group((select group_id from classes where id=class_id))) with check (public.can_access_group((select group_id from classes where id=class_id)));
 create policy monthly_journals_scope_all on public.monthly_journals for all using (public.can_access_group((select group_id from classes where id=class_id))) with check (public.can_access_group((select group_id from classes where id=class_id)));
 create policy student_progress_scope_all on public.student_progress for all using (public.can_access_group((select c.group_id from daily_journals j join classes c on c.id=j.class_id where j.id=journal_id))) with check (public.can_access_group((select c.group_id from daily_journals j join classes c on c.id=j.class_id where j.id=journal_id)));
-create policy enrollments_scope_all on public.class_enrollments for all using (public.can_access_group((select group_id from classes where id=class_id))) with check (public.can_manage_group((select group_id from classes where id=class_id)));
-create policy class_teachers_scope_all on public.class_teachers for all using (public.can_access_group((select group_id from classes where id=class_id))) with check (public.can_manage_group((select group_id from classes where id=class_id)));
+create policy enrollments_scope_read on public.class_enrollments for select using (public.can_access_group((select group_id from classes where id=class_id)));
+create policy enrollments_scope_manage on public.class_enrollments for all using (public.can_manage_group((select group_id from classes where id=class_id))) with check (public.can_manage_group((select group_id from classes where id=class_id)));
+create policy class_teachers_scope_read on public.class_teachers for select using (public.can_access_group((select group_id from classes where id=class_id)));
+create policy class_teachers_scope_manage on public.class_teachers for all using (public.can_manage_group((select group_id from classes where id=class_id))) with check (public.can_manage_group((select group_id from classes where id=class_id)));
 create policy meeting_minutes_scope_all on public.meeting_minutes for all using (public.can_access_group(group_id)) with check (public.can_manage_group(group_id));
-create policy templates_scope_all on public.report_templates for all using (owner_id=auth.uid() or public.is_super_admin() or public.can_access_group((select group_id from classes where id=class_id))) with check (owner_id=auth.uid() or public.is_super_admin());
+create policy templates_scope_read on public.report_templates for select using (owner_id=auth.uid() or public.is_super_admin() or public.can_access_group((select group_id from classes where id=class_id)));
+create policy templates_owner_manage on public.report_templates for all using (owner_id=auth.uid() or public.is_super_admin()) with check (owner_id=auth.uid() or public.is_super_admin());
 create policy reports_scope_all on public.reports for all using (public.can_access_group((select group_id from classes where id=class_id))) with check (public.can_access_group((select group_id from classes where id=class_id)));
 create policy analyses_scope_read on public.ai_analyses for select using (public.is_super_admin() or exists(select 1 from reports r join classes c on c.id=r.class_id where r.id=report_id and public.can_access_group(c.group_id)));
 create policy target_versions_read on public.target_versions for select using (public.is_super_admin() or exists(select 1 from memberships where user_id=auth.uid() and is_active));
 create policy target_versions_manage on public.target_versions for all using (public.is_super_admin() or exists(select 1 from memberships where user_id=auth.uid() and role='admin_daerah' and area_id=target_versions.area_id and is_active)) with check (public.is_super_admin() or exists(select 1 from memberships where user_id=auth.uid() and role='admin_daerah' and area_id=target_versions.area_id and is_active));
 create policy targets_read on public.targets for select using (exists(select 1 from target_versions v where v.id=version_id and (public.is_super_admin() or exists(select 1 from memberships where user_id=auth.uid() and is_active))));
 create policy targets_manage on public.targets for all using (exists(select 1 from target_versions v where v.id=version_id and (public.is_super_admin() or exists(select 1 from memberships where user_id=auth.uid() and role='admin_daerah' and area_id=v.area_id and is_active)))) with check (exists(select 1 from target_versions v where v.id=version_id and (public.is_super_admin() or exists(select 1 from memberships where user_id=auth.uid() and role='admin_daerah' and area_id=v.area_id and is_active))));
-create policy chat_threads_read on public.chat_threads for select using (public.is_super_admin() or exists(select 1 from chat_participants where thread_id=chat_threads.id and user_id=auth.uid()));
-create policy chat_participants_read on public.chat_participants for select using (user_id=auth.uid() or public.is_super_admin() or exists(select 1 from chat_participants cp where cp.thread_id=chat_participants.thread_id and cp.user_id=auth.uid()));
-create policy chat_messages_read on public.chat_messages for select using (public.is_super_admin() or exists(select 1 from chat_participants where thread_id=chat_messages.thread_id and user_id=auth.uid()));
-create policy chat_messages_insert on public.chat_messages for insert with check (sender_id=auth.uid() and exists(select 1 from chat_participants where thread_id=chat_messages.thread_id and user_id=auth.uid()));
+create policy chat_threads_read on public.chat_threads for select using (public.is_super_admin() or public.is_thread_participant(id));
+create policy chat_participants_read on public.chat_participants for select using (user_id=auth.uid() or public.is_super_admin() or public.is_thread_participant(thread_id));
+create policy chat_messages_read on public.chat_messages for select using (public.is_super_admin() or public.is_thread_participant(thread_id));
+create policy chat_messages_insert on public.chat_messages for insert with check (sender_id=auth.uid() and public.is_thread_participant(thread_id));
 create policy invitations_manage on public.invitations for all using (public.is_super_admin() or invited_by=auth.uid()) with check (public.is_super_admin() or invited_by=auth.uid());
 
 revoke all on all tables in schema public from anon;
