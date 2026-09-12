@@ -1,0 +1,13 @@
+{
+  "name": "One Pro Jurnal Digital",
+  "short_name": "One Pro",
+  "description": "Agenda, presensi, jurnal, target, dan laporan pengajian Malang Timur.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#11111a",
+  "theme_color": "#681474",
+  "lang": "id",
+  "icons": [
+    { "src": "/brand/one-pro-logo.png", "sizes": "2048x2048", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
