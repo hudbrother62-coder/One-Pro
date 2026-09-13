@@ -1,66 +1,59 @@
-# Design QA — One Pro Jurnal Digital
+# Design QA — Responsive Production Shell
 
 ## Evidence
 
-- Source visual truth:
-  - `/workspace/scratch/714b6e8b5266/generated_images/exec-10252efa-f8fa-42b7-b1b9-46ec86997ea0.png` (Agenda Operasional, dark)
-  - `/workspace/scratch/714b6e8b5266/generated_images/exec-dc019649-3089-4785-b29c-edfbe5be8df4.png` (Pantauan Progres, light)
-- Browser-rendered implementation capture: `cloud-browser://Chrome/1/tab/1` at `http://terminal.local:4173/`, captured inline during QA.
-- Browser viewport: 1363 × 936 CSS px, device scale factor 1.
-- Phone screen in stage: 360.52 × 781.59 CSS px, scaled from the protected 393 × 852 mobile runtime.
-- Source images: 852 × 1847 px and 852 × 1847 px. The sources and implementation were compared as full mobile compositions; differences caused solely by the protected device frame and stage scaling were excluded.
-- States compared: PJ Kelompok/dark/home and Admin Daerah/light/home.
-- Primary interactions tested: light/dark toggle, role switch, bottom navigation, menu sheet, attendance H/I/A selection and save confirmation, optional student-photo visibility, individual report, and PowerPoint class-template tab.
-- Console checked: no application-origin errors. Repeated messages originated from the cloud-browser Chrome extension only.
+- Source problem: `/workspace/scratch/714b6e8b5266/upload/f227b05d-41ca-478d-b023-39eda15177aa.png` (desktop browser incorrectly showing a framed iPhone app).
+- Implementation: `https://one-pro-cyan.vercel.app/?preview=1`, deployment commit `d12b91d`.
+- Browser-rendered desktop capture: cloud Chrome tab 1, captured inline during QA.
+- Desktop viewport: 1363 × 936 CSS px, device scale factor 1.
+- State: dark theme, PJ Kelompok dashboard.
+- Interactions tested: desktop navigation to Database Anak, open/close Add Student editor, navigation to Attendance, and preview role selection.
+- Console checked: no application-origin errors; two logged errors came from the cloud-browser extension URL.
 
 ## Full-view comparison
 
-The implementation preserves the selected references' core hierarchy: role and location context, high-priority operational/target metric, compact data rows, status colors, and persistent mobile navigation. It intentionally uses the supplied purple/navy One Pro identity instead of the teal identity in the generated references. The teacher/PJ home removes motivational copy and prioritizes agenda, totals, overdue work, and direct actions as requested.
+The P0 issue in the supplied screenshot is resolved. On desktop, the browser viewport is now occupied by a native desktop shell: 256 px sidebar, 76 px application header, wide data canvas, two-column dashboard composition, and no phone bezel or device picker. The production screen measured 1363 × 936 CSS px and had no horizontal overflow.
 
 ## Focused comparison
 
-Focused checks were made on the header/logo, first metric panel, agenda/village rows, semantic status pills, and bottom navigation. These were the fidelity-critical regions because they carry brand, hierarchy, and daily actions. No custom icon drawings or placeholder brand assets remain; the supplied logo and Phosphor icon set are used.
+- Navigation: all 10 feature destinations are visible in the desktop sidebar; bottom navigation is hidden at desktop width.
+- Brand: the supplied One Pro purple/navy mark is visible in the sidebar.
+- Data canvas: dashboard cards scale to the remaining 1107 px content width instead of staying at phone width.
+- Runtime chrome: phone bezel, simulated status bar, camera, home indicator, keyboard asset, and device picker are hidden in production viewport CSS.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: Plus Jakarta Sans Variable is bundled locally. Display weights, compact data labels, wrapping, and numerical hierarchy are consistent and legible.
-- Spacing and layout rhythm: compact mobile density is consistent. The protected phone runtime adds the device frame; app-owned content respects status and home-indicator safe areas.
-- Colors and visual tokens: source hierarchy is retained while teal is intentionally remapped to the supplied magenta/purple/navy/blue brand. Success, warning, danger, surface, and muted tokens are consistent in light and dark modes.
-- Image quality and asset fidelity: the supplied One Pro SVG/PNG is used. The mark is cropped deliberately in the compact header so it remains readable; no rasterized UI or generated placeholder image is used.
-- Copy and content: teacher-facing content is data/action-first. Area view uses target, attendance, village ranking, and follow-up counts. No decorative quote or prompt-leak copy remains.
+- Fonts and typography: Plus Jakarta Sans Variable remains bundled; desktop headings, data values, row labels, and sidebar labels use larger desktop-specific sizes.
+- Spacing and layout rhythm: desktop uses a fixed sidebar and centered content canvas; mobile retains single-column spacing, safe-area padding, and bottom navigation.
+- Colors and tokens: the existing light/dark semantic token system is preserved.
+- Image quality and asset fidelity: supplied One Pro SVG is used directly and cropped to the mark; no placeholder logo remains.
+- Copy and content: screens remain data/action-first with no decorative filler.
 
 ## Comparison history
 
 ### Iteration 1
 
-- [P0] Bottom navigation rendered at the top because an undefined safe-area variable invalidated its `bottom` position.
-- [P1] Header and brand mark were hidden under the misplaced navigation.
-- Fix: replaced the invalid variable with the runtime-owned `--device-safe-area-bottom` fallback and aligned toast placement to the same safe area.
-- Post-fix evidence: cloud capture shows persistent navigation above the home indicator and an unobstructed header.
+- [P0] Desktop rendered a centered phone mockup rather than a desktop application.
+- Fix: production CSS expands the device screen to the real browser viewport and hides all preview-only device chrome.
+- Post-fix evidence: browser measurement reports `phoneFrameHidden: true`, `sidebarVisible: true`, `bottomNavHidden: true`, and `overflowX: false`.
 
 ### Iteration 2
 
-- [P1] Header occupied the device status-bar region and collided with the clock/dynamic island.
-- [P2] Full-logo artwork was too small to recognize at 42 px.
-- Fix: moved the header below the 54 px status region, adjusted content top padding, and cropped the supplied logo artwork to emphasize its symbol in the header.
-- Post-fix evidence: dark PJ and light Admin Daerah captures show clear separation between device chrome, header, context, and data content.
+- [P2] The logo crop showed a white tile in the first desktop capture.
+- Fix: aligned the supplied square logo to the top of its cropped container.
+- Post-fix evidence: latest browser capture visibly shows the purple/navy chart mark in the sidebar.
 
 ## Findings
 
-No actionable P0, P1, or P2 visual issues remain in the tested states.
+- [P2] A browser-rendered narrow mobile capture could not be produced by the fixed-size cloud browser in this run. The mobile breakpoint is implemented in CSS and retains bottom navigation while hiding the desktop sidebar, but it still requires a device-width visual capture before the responsive QA gate can be closed.
 
 ## Implementation checklist
 
-- [x] Mobile safe areas and persistent navigation
-- [x] Supplied One Pro logo
-- [x] Dark and light themes
-- [x] Direct teacher/PJ operational data
-- [x] Area monitoring metrics and hierarchy
-- [x] Interactive core controls and visible success feedback
+- [x] Native desktop shell
+- [x] Phone preview chrome removed from production viewport
+- [x] Desktop sidebar and wide dashboard
+- [x] Light/dark theme preserved
+- [x] Desktop primary navigation and editor interaction verified
+- [ ] Browser-rendered 390 px mobile regression capture
 
-## Follow-up polish
-
-- [P3] A future iteration can add a desktop-specific information layout after real production data establishes table and chart density.
-- [P3] The bundle can be split by feature route after the prototype is converted from state-based screens to production routing.
-
-final result: passed
+final result: blocked
