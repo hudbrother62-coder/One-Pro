@@ -49,7 +49,7 @@ const menuItems: { id: Screen; label: string; icon: typeof House; hint: string }
   { id: "journal", label: "Jurnal", icon: ClipboardText, hint: "Harian dan bulanan" },
   { id: "students", label: "Database Anak", icon: Database, hint: "Data, foto, dan kelas" },
   { id: "targets", label: "Target", icon: Target, hint: "Target tiap jenjang" },
-  { id: "team", label: "Tim & Akses", icon: Users, hint: "Anggota dan undangan" },
+  { id: "team", label: "Tim & Akses", icon: Users, hint: "Anggota dan login" },
   { id: "chat", label: "Komunikasi", icon: Bell, hint: "Chat dan pengumuman" },
   { id: "settings", label: "Pengaturan", icon: Gear, hint: "Profil, AI, dan tema" },
 ];
