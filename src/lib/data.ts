@@ -255,7 +255,15 @@ export async function loadAccounts() {
 export async function manageAccount(payload: Record<string, unknown>) {
   if (!supabase) throw new Error("Supabase belum terhubung");
   const { data, error } = await supabase.functions.invoke("manage-users", { body: payload });
-  if (error) throw new Error((data as { error?: string } | null)?.error ?? error.message);
+  if (error) {
+    let message = (data as { error?: string } | null)?.error ?? error.message;
+    const context = (error as unknown as { context?: Response }).context;
+    if (context) {
+      try { const details = await context.clone().json() as { error?: string }; message = details.error ?? message; }
+      catch { /* Keep the original Functions error when the body is not JSON. */ }
+    }
+    throw new Error(message);
+  }
   if ((data as { error?: string } | null)?.error) throw new Error((data as { error: string }).error);
   return data;
 }

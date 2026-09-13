@@ -111,7 +111,7 @@ Deno.serve(async (req: Request) => {
     const fullName = String(body.fullName ?? "").trim();
     const authorization = await authorize(targetRole, scope);
     if (!authorization.allowed) return response(req, { error: "Anda tidak boleh membuat akun pada lingkup tersebut" }, 403);
-    if (!validUsername(username) || password.length < 8 || !fullName) return response(req, { error: "Nama, username valid, dan password minimal 8 karakter wajib diisi" }, 400);
+    if (!validUsername(username) || password.length < 6 || !fullName) return response(req, { error: "Nama, username valid, dan password minimal 6 karakter wajib diisi" }, 400);
 
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email: `${username}@accounts.onepro.local`,
@@ -166,7 +166,7 @@ Deno.serve(async (req: Request) => {
     const username = String(body.username ?? "").trim().toLowerCase();
     const password = String(body.password ?? "");
     const fullName = String(body.fullName ?? "").trim();
-    if (!validUsername(username) || !fullName || (password && password.length < 8)) return response(req, { error: "Nama dan username wajib valid; password baru minimal 8 karakter" }, 400);
+    if (!validUsername(username) || !fullName || (password && password.length < 6)) return response(req, { error: "Nama dan username wajib valid; password baru minimal 6 karakter" }, 400);
     const { data: oldProfile } = await admin.from("profiles").select("username,full_name").eq("id", targetId).single();
     const authUpdate: Record<string, unknown> = { email: `${username}@accounts.onepro.local`, user_metadata: { full_name: fullName, username } };
     if (password) authUpdate.password = password;

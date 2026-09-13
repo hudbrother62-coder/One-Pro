@@ -557,6 +557,7 @@ function Team({ notify, workspace, role, previewMode, superView = false }: { not
   const [villageId, setVillageId] = useState(workspace.villages[0]?.id ?? "");
   const [groupId, setGroupId] = useState(workspace.groups[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const canCreate = role !== "Pengajar";
   const availableRoles: AccountRole[] = role === "Super Admin" ? ["admin_daerah", "admin_desa", "pj_kelompok", "pengajar"] : role === "Admin Daerah" ? ["admin_desa", "pj_kelompok", "pengajar"] : role === "Admin Desa" ? ["pj_kelompok", "pengajar"] : ["pengajar"];
   const visibleVillages = workspace.villages.filter((village) => !areaId || village.area_id === areaId);
@@ -576,14 +577,22 @@ function Team({ notify, workspace, role, previewMode, superView = false }: { not
   useEffect(() => { if ((!villageId || !visibleVillages.some((item) => item.id === villageId)) && visibleVillages[0]) setVillageId(visibleVillages[0].id); }, [villageId, visibleVillages]);
   useEffect(() => { if ((!groupId || !visibleGroups.some((item) => item.id === groupId)) && visibleGroups[0]) setGroupId(visibleGroups[0].id); }, [groupId, visibleGroups]);
 
-  const openCreate = () => { setEditing(null); setFullName(""); setUsername(""); setPassword(""); setAccountRole(availableRoles[0]); setOpen(true); };
-  const openEdit = (account: WorkspaceAccount) => { setEditing(account); setFullName(account.full_name); setUsername(account.username ?? ""); setPassword(""); setOpen(true); };
+  const openCreate = () => { setEditing(null); setFullName(""); setUsername(""); setPassword(""); setFormError(null); setAccountRole(availableRoles[0]); setOpen(true); };
+  const openEdit = (account: WorkspaceAccount) => { setEditing(account); setFullName(account.full_name); setUsername(account.username ?? ""); setPassword(""); setFormError(null); setOpen(true); };
   const submit = async () => {
     if (previewMode) { notify(editing ? "Perubahan akun siap disimpan" : "Akun baru siap dibuat"); setOpen(false); return; }
+    const cleanUsername = username.trim().toLowerCase();
+    if (!fullName.trim()) { setFormError("Nama lengkap wajib diisi."); return; }
+    if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(cleanUsername)) { setFormError("Username minimal 3 karakter dan hanya boleh memakai huruf kecil, angka, titik, garis bawah, atau tanda minus."); return; }
+    if ((!editing || password) && password.length < 6) { setFormError("Password minimal 6 karakter."); return; }
+    if (accountRole === "admin_daerah" && !areaId) { setFormError("Pilih daerah untuk akun ini."); return; }
+    if (accountRole === "admin_desa" && !villageId) { setFormError("Pilih desa untuk akun ini."); return; }
+    if (["pj_kelompok", "pengajar"].includes(accountRole) && !groupId) { setFormError("Pilih kelompok untuk akun ini."); return; }
+    setFormError(null);
     setSaving(true);
     try {
-      await manageAccount(editing ? { action: "update", userId: editing.user_id, fullName, username, password } : {
-        action: "create", fullName, username, password, role: accountRole,
+      await manageAccount(editing ? { action: "update", userId: editing.user_id, fullName: fullName.trim(), username: cleanUsername, password } : {
+        action: "create", fullName: fullName.trim(), username: cleanUsername, password, role: accountRole,
         areaId: accountRole === "admin_daerah" ? areaId : null,
         villageId: accountRole === "admin_desa" ? villageId : null,
         groupId: ["pj_kelompok", "pengajar"].includes(accountRole) ? groupId : null,
@@ -591,7 +600,7 @@ function Team({ notify, workspace, role, previewMode, superView = false }: { not
       notify(editing ? "Data login berhasil diperbarui" : "User baru berhasil dibuat");
       setOpen(false);
       await refreshAccounts();
-    } catch (error) { notify(error instanceof Error ? error.message : "Akun gagal disimpan"); }
+    } catch (error) { const message = error instanceof Error ? error.message : "Akun gagal disimpan"; setFormError(message); notify(message); }
     finally { setSaving(false); }
   };
   const setStatus = async (account: WorkspaceAccount) => {
@@ -616,12 +625,13 @@ function Team({ notify, workspace, role, previewMode, superView = false }: { not
     {open ? <div className="editor-overlay" role="dialog" aria-modal="true" aria-label={editing ? "Edit user" : "Tambah user"}><section className="editor-panel account-panel"><div className="editor-head"><div><span className="eyebrow">{editing ? "EDIT LOGIN" : "USER BARU"}</span><h2>{editing ? editing.full_name : "Buat akun langsung"}</h2></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Tutup"><X size={19} /></button></div>
       <label className="field"><span>Nama lengkap</span><KeyboardInput value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
       <label className="field"><span>Username</span><KeyboardInput value={username} onChange={(event) => setUsername(event.target.value.toLowerCase())} autoCapitalize="none" spellCheck={false} /></label>
-      <label className="field"><span>{editing ? "Password baru (kosongkan jika tetap)" : "Password awal"}</span><KeyboardInput value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="new-password" /></label>
+      <label className="field"><span>{editing ? "Password baru (kosongkan jika tetap)" : "Password awal — minimal 6 karakter"}</span><KeyboardInput value={password} onChange={(event) => { setPassword(event.target.value); setFormError(null); }} type="password" autoComplete="new-password" /></label>
       {!editing ? <><label className="field"><span>Tingkatan akses</span><select value={accountRole} onChange={(event) => setAccountRole(event.target.value as AccountRole)}>{availableRoles.map((item) => <option key={item} value={item}>{roleLabels[item]}</option>)}</select></label>
         {accountRole === "admin_daerah" ? <label className="field"><span>Daerah</span><select value={areaId} onChange={(event) => setAreaId(event.target.value)}>{workspace.areas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : null}
         {accountRole === "admin_desa" ? <><label className="field"><span>Daerah</span><select value={areaId} onChange={(event) => setAreaId(event.target.value)}>{workspace.areas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="field"><span>Desa</span><select value={villageId} onChange={(event) => setVillageId(event.target.value)}>{visibleVillages.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></> : null}
         {["pj_kelompok", "pengajar"].includes(accountRole) ? <><label className="field"><span>Desa</span><select value={villageId} onChange={(event) => setVillageId(event.target.value)}>{visibleVillages.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="field"><span>Kelompok</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)}>{visibleGroups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></> : null}</> : <div className="account-scope-note"><strong>{roleLabels[editing.role]}</strong><span>{scopeName(editing)}</span></div>}
-      <button className="primary-button" disabled={saving || !fullName.trim() || !username.trim() || (!editing && password.length < 8)} onClick={() => void submit()}>{saving ? "Menyimpan…" : editing ? "Simpan perubahan" : "Buat user"}</button>
+      {formError ? <div className="form-error" role="alert"><WarningCircle size={17} /><span>{formError}</span></div> : null}
+      <button className="primary-button" disabled={saving} onClick={() => void submit()}>{saving ? "Membuat akun…" : editing ? "Simpan perubahan" : "Buat user"}</button>
     </section></div> : null}
   </>;
 }

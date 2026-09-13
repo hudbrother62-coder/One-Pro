@@ -107,6 +107,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .member-card { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 11px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
 .member-main { min-width: 0; display: grid; gap: 3px; }.member-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }.member-main small, .member-main em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 8px; font-style: normal; }
 .member-actions { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 7px; }.member-actions button { min-height: 31px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface-2); font-size: 8px; font-weight: 750; }.member-actions button.danger { color: var(--danger); }
+.form-error { display: flex; align-items: flex-start; gap: 8px; margin: 2px 0 12px; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line)); border-radius: 11px; color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, var(--surface)); font-size: 10px; line-height: 1.45; }.form-error svg { flex: 0 0 auto; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
 
 
