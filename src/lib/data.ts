@@ -111,3 +111,26 @@ export async function saveDailyJournal(input: { classId: string; userId: string;
   }, { onConflict: "class_id,journal_date" });
   if (error) throw error;
 }
+
+async function hashToken(token: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function createGroupInvitation(input: { fullName: string; role: "pj_kelompok" | "pengajar"; groupId: string; invitedBy: string }) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const raw = new Uint8Array(32);
+  crypto.getRandomValues(raw);
+  const token = Array.from(raw, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const tokenHash = await hashToken(token);
+  const { error } = await supabase.from("invitations").insert({
+    full_name: input.fullName.trim(),
+    role: input.role,
+    group_id: input.groupId,
+    token_hash: tokenHash,
+    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    invited_by: input.invitedBy,
+  });
+  if (error) throw error;
+  return `${window.location.origin}/?invite=${token}`;
+}

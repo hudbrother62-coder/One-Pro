@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "@fontsource-variable/plus-jakarta-sans";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { emptyWorkspace, loadWorkspace, saveAttendance, saveDailyJournal, saveStudent, setStudentStatus, type WorkspaceData, type WorkspaceStudent } from "./lib/data";
+import { createGroupInvitation, emptyWorkspace, loadWorkspace, saveAttendance, saveDailyJournal, saveStudent, setStudentStatus, type WorkspaceData, type WorkspaceStudent } from "./lib/data";
 import {
   Bell,
   CalendarBlank,
@@ -137,7 +137,7 @@ export default function Prototype() {
   };
 
   if (!previewMode && (!authReady || !authUser)) {
-    return <div className={cx("one-pro-shell", dark && "is-dark")}><MobileScroll className="app-screen"><AuthScreen ready={authReady} /></MobileScroll></div>;
+    return <div className={cx("one-pro-shell", dark && "is-dark")}><MobileScroll className="app-screen"><AuthScreen ready={authReady} inviteToken={new URLSearchParams(window.location.search).get("invite")} /></MobileScroll></div>;
   }
 
   return (
@@ -181,7 +181,7 @@ export default function Prototype() {
           {screen === "students" ? <Students notify={notify} workspace={workspace} refresh={refreshWorkspace} previewMode={previewMode} /> : null}
           {screen === "targets" ? <Targets notify={notify} /> : null}
           {screen === "reports" ? <Reports notify={notify} /> : null}
-          {screen === "team" ? <Team notify={notify} /> : null}
+          {screen === "team" ? <Team notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
           {screen === "chat" ? <Chat notify={notify} /> : null}
           {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => supabase?.auth.signOut()} /> : null}
         </main>
@@ -484,12 +484,28 @@ function Reports({ notify }: { notify: (message: string) => void }) {
   </>;
 }
 
-function Team({ notify }: { notify: (message: string) => void }) {
+function Team({ notify, workspace, userId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [inviteRole, setInviteRole] = useState<"pengajar" | "pj_kelompok">("pengajar");
+  const [groupId, setGroupId] = useState(workspace.groups[0]?.id ?? "");
+  const [link, setLink] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (!groupId && workspace.groups[0]) setGroupId(workspace.groups[0].id); }, [groupId, workspace.groups]);
+  const createInvite = async () => {
+    if (previewMode) { setLink(`${window.location.origin}/?invite=contoh-tautan-aman`); return; }
+    if (!fullName.trim() || !groupId || !userId) { notify("Nama dan kelompok wajib dipilih"); return; }
+    setSaving(true);
+    try { setLink(await createGroupInvitation({ fullName, role: inviteRole, groupId, invitedBy: userId })); notify("Tautan undangan aktif selama 7 hari"); }
+    catch (error) { notify(error instanceof Error ? error.message : "Undangan gagal dibuat"); }
+    finally { setSaving(false); }
+  };
   return <>
-    <PageHeader title="Tim & Akses" subtitle="7 anggota aktif di Mangliawan Utara" action={<button className="primary-icon" onClick={() => notify("Link undangan berhasil dibuat")}><Plus size={20} /></button>} />
+    <PageHeader title="Tim & Akses" subtitle="Anggota, lingkup akses, dan aktivitas" action={<button className="primary-icon" onClick={() => { setOpen(true); setLink(""); }} aria-label="Buat undangan"><Plus size={20} /></button>} />
     <div className="team-list"><Member initials="AS" name="Ahmad Syafi'i" role="Penanggung Jawab Kelompok" status="Aktif sekarang" /><Member initials="SF" name="Siti Fatimah" role="Pengajar • Kelas Al-Fatihah" status="Login 18.42" /><Member initials="BR" name="Budi Rahman" role="Pengajar • Fiqih Dasar" status="Login kemarin" /></div>
     <SectionTitle title="Aktivitas terbaru" />
     <div className="timeline"><p><i />18.42 <strong>Siti Fatimah</strong> mengisi presensi</p><p><i />17.58 <strong>Ahmad Syafi'i</strong> mengubah jadwal</p><p><i />16.30 <strong>Budi Rahman</strong> login</p></div>
+    {open ? <div className="editor-overlay" role="dialog" aria-modal="true" aria-label="Buat undangan anggota"><section className="editor-panel invite-panel"><div className="editor-head"><div><span className="eyebrow">AKSES ANGGOTA</span><h2>Buat tautan undangan</h2></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Tutup"><X size={19} /></button></div>{link ? <><div className="invite-result"><CheckCircle size={24} weight="fill" /><span><strong>Tautan siap dibagikan</strong><small>Penerima akan memilih username dan password. Tautan berlaku satu kali selama 7 hari.</small></span></div><label className="field"><span>Tautan undangan</span><KeyboardInput value={link} readOnly /></label><button className="primary-button" onClick={async () => { await navigator.clipboard.writeText(link); notify("Tautan undangan disalin"); }}>Salin tautan</button></> : <><label className="field"><span>Nama lengkap pengajar</span><KeyboardInput value={fullName} onChange={(event) => setFullName(event.target.value)} /></label><label className="field"><span>Akses</span><select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as typeof inviteRole)}><option value="pengajar">Dewan Guru / Pengajar</option><option value="pj_kelompok">Penanggung Jawab Kelompok</option></select></label><label className="field"><span>Kelompok</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)}>{workspace.groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label><button className="primary-button" disabled={saving || !fullName.trim() || (!previewMode && !groupId)} onClick={() => void createInvite()}>{saving ? "Membuat…" : "Buat tautan"}</button></>}</section></div> : null}
   </>;
 }
 
@@ -518,11 +534,22 @@ function Settings({ dark, setDark, notify, onSignOut }: { dark: boolean; setDark
   </>;
 }
 
-function AuthScreen({ ready }: { ready: boolean }) {
+function AuthScreen({ ready, inviteToken }: { ready: boolean; inviteToken: string | null }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [invite, setInvite] = useState<{ fullName: string; role: string; expiresAt: string } | null>(null);
+
+  useEffect(() => {
+    if (!supabase || !inviteToken) return;
+    setLoading(true);
+    supabase.functions.invoke("accept-invitation", { body: { action: "inspect", token: inviteToken } }).then(({ data, error }) => {
+      if (error || !data?.fullName) setMessage("Undangan tidak ditemukan, kedaluwarsa, atau sudah dipakai.");
+      else setInvite(data);
+      setLoading(false);
+    });
+  }, [inviteToken]);
 
   const submit = async () => {
     const username = identifier.trim().toLowerCase();
@@ -533,6 +560,12 @@ function AuthScreen({ ready }: { ready: boolean }) {
     }
     setLoading(true);
     setMessage(null);
+    if (inviteToken) {
+      if (!invite) { setLoading(false); setMessage("Undangan belum siap digunakan."); return; }
+      const accepted = await supabase.functions.invoke("accept-invitation", { body: { action: "accept", token: inviteToken, username: username.replace(/@.*$/, ""), password } });
+      if (accepted.error) { setLoading(false); setMessage(accepted.data?.error ?? accepted.error.message); return; }
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     const result = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (result.error) setMessage(result.error.message);
@@ -542,14 +575,14 @@ function AuthScreen({ ready }: { ready: boolean }) {
     <section className="auth-brand"><span className="auth-logo" /><div><strong>One Pro</strong><small>Jurnal Digital</small></div></section>
     <section className="auth-card">
       <span className="eyebrow">MALANG TIMUR</span>
-      <h1>Masuk</h1>
-      <p>Gunakan akun anggota yang telah terdaftar.</p>
+      <h1>{inviteToken ? "Aktifkan akun" : "Masuk"}</h1>
+      <p>{invite ? `${invite.fullName} • ${invite.role === "pengajar" ? "Dewan Guru / Pengajar" : "Penanggung Jawab Kelompok"}` : inviteToken ? "Memeriksa tautan undangan…" : "Gunakan akun anggota yang telah terdaftar."}</p>
       {!ready ? <div className="auth-loading">Memeriksa sesi…</div> : <>
         <label className="auth-field"><span>Username</span><input value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoCapitalize="none" spellCheck={false} autoComplete="username" /></label>
         <label className="auth-field"><span>Password</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" /></label>
         {message ? <div className="auth-message" role="status">{message}</div> : null}
-        <button className="primary-button" disabled={loading} onClick={submit}>{loading ? "Memproses…" : "Masuk"}</button>
-        <div className="auth-help">Akun baru dibuat melalui tautan undangan PJ atau Admin.</div>
+        <button className="primary-button" disabled={loading || (!!inviteToken && !invite)} onClick={submit}>{loading ? "Memproses…" : inviteToken ? "Aktifkan & masuk" : "Masuk"}</button>
+        <div className="auth-help">{invite ? "Username tidak dapat sama dengan anggota lain. Tautan hanya dapat digunakan satu kali." : "Akun baru dibuat melalui tautan undangan PJ atau Admin."}</div>
       </>}
     </section>
   </main>;
