@@ -96,6 +96,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .editor-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; }.editor-head h2 { margin: 3px 0 0; font-size: 20px; }
 .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 9px; }.editor-wide { grid-column: 1 / -1; }.editor-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid var(--line); padding-top: 4px; }.editor-actions > button { margin-top: 10px; }
 .invite-panel { max-width: 520px; }.invite-result { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; padding: 13px; color: var(--success); background: var(--success-bg); border-radius: 13px; }.invite-result > span { display: grid; gap: 4px; }.invite-result strong { font-size: 11px; }.invite-result small { color: var(--muted); font-size: 9px; line-height: 1.5; }
+.full-loading { min-height: 100dvh; display: grid; place-items: center; color: var(--muted); background: var(--bg); font-size: 12px; font-weight: 700; }
+.account-panel { max-width: 560px; }
+.account-scope-note { display: flex; justify-content: space-between; gap: 12px; margin: 10px 0 16px; padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-2); font-size: 10px; }.account-scope-note span { color: var(--muted); }
+.member-card { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 11px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.member-main { min-width: 0; display: grid; gap: 3px; }.member-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }.member-main small, .member-main em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 8px; font-style: normal; }
+.member-actions { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 7px; }.member-actions button { min-height: 31px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface-2); font-size: 8px; font-weight: 750; }.member-actions button.danger { color: var(--danger); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
 
 

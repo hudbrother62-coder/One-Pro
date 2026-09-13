@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "@fontsource-variable/plus-jakarta-sans";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { createGroupInvitation, emptyWorkspace, loadWorkspace, saveAttendance, saveDailyJournal, saveStudent, setStudentStatus, type WorkspaceData, type WorkspaceStudent } from "./lib/data";
+import { emptyWorkspace, loadAccounts, loadWorkspace, manageAccount, saveAttendance, saveDailyJournal, saveStudent, setStudentStatus, type AccountRole, type LoginActivity, type WorkspaceAccount, type WorkspaceData, type WorkspaceStudent } from "./lib/data";
 import {
   Bell,
   CalendarBlank,
@@ -34,7 +34,7 @@ import {
 } from "@phosphor-icons/react";
 import { BottomSheet, KeyboardInput, KeyboardTextarea, MobileScroll } from "./mobile";
 
-type Screen = "home" | "agenda" | "attendance" | "journal" | "students" | "targets" | "reports" | "team" | "chat" | "settings";
+type Screen = "home" | "agenda" | "attendance" | "journal" | "students" | "targets" | "reports" | "team" | "chat" | "settings" | "admin";
 type Role = "Pengajar" | "PJ Kelompok" | "Admin Desa" | "Admin Daerah" | "Super Admin";
 type Attendance = "H" | "I" | "A";
 
@@ -59,6 +59,8 @@ const desktopNavItems = [
   ...menuItems,
 ];
 
+const superAdminItem = { id: "admin" as Screen, label: "Super Admin", icon: UserCircle, hint: "Akun, akses, dan login" };
+
 const demoStudents = [
   { id: 1, name: "Ahmad Fauzan", grade: "Kelas 1 SD", initials: "AF", active: true },
   { id: 2, name: "Naila Azzahra", grade: "Kelas 3 SD", initials: "NA", active: true },
@@ -79,6 +81,8 @@ export default function Prototype() {
   const [toast, setToast] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [accessReady, setAccessReady] = useState(false);
+  const [loginMessage, setLoginMessage] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceData>(emptyWorkspace);
   const [dataState, setDataState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const previewMode = !isSupabaseConfigured || new URLSearchParams(window.location.search).get("preview") === "1";
@@ -104,10 +108,22 @@ export default function Prototype() {
 
   useEffect(() => {
     if (!supabase || !authUser || previewMode) return;
+    setAccessReady(false);
     supabase.from("memberships").select("role").eq("user_id", authUser.id).eq("is_active", true).limit(1).maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data, error }) => {
         const roles: Record<string, Role> = { super_admin: "Super Admin", admin_daerah: "Admin Daerah", admin_desa: "Admin Desa", pj_kelompok: "PJ Kelompok", pengajar: "Pengajar" };
-        if (data?.role && roles[data.role]) setRole(roles[data.role]);
+        if (error || !data?.role || !roles[data.role]) {
+          setLoginMessage("Akun tidak aktif atau belum memiliki akses. Hubungi Super Admin.");
+          await supabase?.auth.signOut();
+          return;
+        }
+        setRole(roles[data.role]);
+        setAccessReady(true);
+        const marker = `one-pro-login-${authUser.id}`;
+        if (!sessionStorage.getItem(marker)) {
+          sessionStorage.setItem(marker, "1");
+          void manageAccount({ action: "record-login" }).catch(console.error);
+        }
       });
   }, [authUser, previewMode]);
 
@@ -137,8 +153,15 @@ export default function Prototype() {
   };
 
   if (!previewMode && (!authReady || !authUser)) {
-    return <div className={cx("one-pro-shell", dark && "is-dark")}><MobileScroll className="app-screen"><AuthScreen ready={authReady} inviteToken={new URLSearchParams(window.location.search).get("invite")} /></MobileScroll></div>;
+    return <div className={cx("one-pro-shell", dark && "is-dark")}><MobileScroll className="app-screen"><AuthScreen ready={authReady} externalMessage={loginMessage} clearExternalMessage={() => setLoginMessage(null)} /></MobileScroll></div>;
   }
+
+  if (!previewMode && !accessReady) {
+    return <div className={cx("one-pro-shell", dark && "is-dark")}><div className="full-loading" role="status">Memeriksa akses akun…</div></div>;
+  }
+
+  const allowedNavigation = role === "Super Admin" ? [...desktopNavItems, superAdminItem] : desktopNavItems;
+  const allowedMenuItems = role === "Super Admin" ? [...menuItems, superAdminItem] : menuItems;
 
   return (
     <div className={cx("one-pro-shell", dark && "is-dark")}>
@@ -149,7 +172,7 @@ export default function Prototype() {
         </button>
         <div className="desktop-scope"><span>DAERAH</span><strong>Malang Timur</strong><small>{role}</small></div>
         <nav className="desktop-nav">
-          {desktopNavItems.map((item) => {
+          {allowedNavigation.map((item) => {
             const Icon = item.icon;
             return <button key={item.id} className={cx(screen === item.id && "active")} onClick={() => go(item.id)}><Icon size={20} weight={screen === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
           })}
@@ -181,7 +204,8 @@ export default function Prototype() {
           {screen === "students" ? <Students notify={notify} workspace={workspace} refresh={refreshWorkspace} previewMode={previewMode} /> : null}
           {screen === "targets" ? <Targets notify={notify} /> : null}
           {screen === "reports" ? <Reports notify={notify} /> : null}
-          {screen === "team" ? <Team notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
+          {screen === "team" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} /> : null}
+          {screen === "admin" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} superView /> : null}
           {screen === "chat" ? <Chat notify={notify} /> : null}
           {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => supabase?.auth.signOut()} /> : null}
         </main>
@@ -197,7 +221,7 @@ export default function Prototype() {
 
       <BottomSheet open={menuOpen} onOpenChange={setMenuOpen} title="Semua menu" description="Fitur One Pro sesuai akses akun Anda">
         <div className="menu-grid">
-          {menuItems.map((item) => {
+          {allowedMenuItems.map((item) => {
             const Icon = item.icon;
             return <button key={item.id} onClick={() => go(item.id)}><span className="menu-icon"><Icon size={21} /></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><CaretRight size={16} /></button>;
           })}
@@ -484,33 +508,94 @@ function Reports({ notify }: { notify: (message: string) => void }) {
   </>;
 }
 
-function Team({ notify, workspace, userId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean }) {
+const roleLabels: Record<AccountRole, string> = { super_admin: "Super Admin", admin_daerah: "Admin Daerah", admin_desa: "Admin Desa", pj_kelompok: "PJ Kelompok", pengajar: "Dewan Guru / Pengajar" };
+
+function Team({ notify, workspace, role, previewMode, superView = false }: { notify: (message: string) => void; workspace: WorkspaceData; role: Role; previewMode: boolean; superView?: boolean }) {
+  const [accounts, setAccounts] = useState<WorkspaceAccount[]>([]);
+  const [activity, setActivity] = useState<LoginActivity[]>([]);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<WorkspaceAccount | null>(null);
   const [fullName, setFullName] = useState("");
-  const [inviteRole, setInviteRole] = useState<"pengajar" | "pj_kelompok">("pengajar");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [accountRole, setAccountRole] = useState<AccountRole>(role === "PJ Kelompok" ? "pengajar" : role === "Admin Desa" ? "pj_kelompok" : role === "Admin Daerah" ? "admin_desa" : "admin_daerah");
+  const [areaId, setAreaId] = useState(workspace.areas[0]?.id ?? "");
+  const [villageId, setVillageId] = useState(workspace.villages[0]?.id ?? "");
   const [groupId, setGroupId] = useState(workspace.groups[0]?.id ?? "");
-  const [link, setLink] = useState("");
   const [saving, setSaving] = useState(false);
-  useEffect(() => { if (!groupId && workspace.groups[0]) setGroupId(workspace.groups[0].id); }, [groupId, workspace.groups]);
-  const createInvite = async () => {
-    if (previewMode) { setLink(`${window.location.origin}/?invite=contoh-tautan-aman`); return; }
-    if (!fullName.trim() || !groupId || !userId) { notify("Nama dan kelompok wajib dipilih"); return; }
+  const canCreate = role !== "Pengajar";
+  const availableRoles: AccountRole[] = role === "Super Admin" ? ["admin_daerah", "admin_desa", "pj_kelompok", "pengajar"] : role === "Admin Daerah" ? ["admin_desa", "pj_kelompok", "pengajar"] : role === "Admin Desa" ? ["pj_kelompok", "pengajar"] : ["pengajar"];
+  const visibleVillages = workspace.villages.filter((village) => !areaId || village.area_id === areaId);
+  const visibleGroups = workspace.groups.filter((group) => !villageId || group.village_id === villageId);
+
+  const refreshAccounts = async () => {
+    if (previewMode) {
+      setAccounts([{ membership_id: "demo", user_id: "demo", role: "pengajar", area_id: null, village_id: null, group_id: workspace.groups[0]?.id ?? null, is_active: true, username: "guru.demo", full_name: "Siti Fatimah", last_login_at: new Date().toISOString() }]);
+      return;
+    }
+    try { const result = await loadAccounts(); setAccounts(result.accounts); setActivity(result.activity); }
+    catch (error) { notify(error instanceof Error ? error.message : "Data akun gagal dimuat"); }
+  };
+
+  useEffect(() => { void refreshAccounts(); }, [previewMode]);
+  useEffect(() => { if (!areaId && workspace.areas[0]) setAreaId(workspace.areas[0].id); }, [areaId, workspace.areas]);
+  useEffect(() => { if ((!villageId || !visibleVillages.some((item) => item.id === villageId)) && visibleVillages[0]) setVillageId(visibleVillages[0].id); }, [villageId, visibleVillages]);
+  useEffect(() => { if ((!groupId || !visibleGroups.some((item) => item.id === groupId)) && visibleGroups[0]) setGroupId(visibleGroups[0].id); }, [groupId, visibleGroups]);
+
+  const openCreate = () => { setEditing(null); setFullName(""); setUsername(""); setPassword(""); setAccountRole(availableRoles[0]); setOpen(true); };
+  const openEdit = (account: WorkspaceAccount) => { setEditing(account); setFullName(account.full_name); setUsername(account.username ?? ""); setPassword(""); setOpen(true); };
+  const submit = async () => {
+    if (previewMode) { notify(editing ? "Perubahan akun siap disimpan" : "Akun baru siap dibuat"); setOpen(false); return; }
     setSaving(true);
-    try { setLink(await createGroupInvitation({ fullName, role: inviteRole, groupId, invitedBy: userId })); notify("Tautan undangan aktif selama 7 hari"); }
-    catch (error) { notify(error instanceof Error ? error.message : "Undangan gagal dibuat"); }
+    try {
+      await manageAccount(editing ? { action: "update", userId: editing.user_id, fullName, username, password } : {
+        action: "create", fullName, username, password, role: accountRole,
+        areaId: accountRole === "admin_daerah" ? areaId : null,
+        villageId: accountRole === "admin_desa" ? villageId : null,
+        groupId: ["pj_kelompok", "pengajar"].includes(accountRole) ? groupId : null,
+      });
+      notify(editing ? "Data login berhasil diperbarui" : "User baru berhasil dibuat");
+      setOpen(false);
+      await refreshAccounts();
+    } catch (error) { notify(error instanceof Error ? error.message : "Akun gagal disimpan"); }
     finally { setSaving(false); }
   };
+  const setStatus = async (account: WorkspaceAccount) => {
+    if (previewMode) { notify("Status akun siap diubah"); return; }
+    try { await manageAccount({ action: "status", userId: account.user_id, active: !account.is_active }); notify(account.is_active ? "Akun dinonaktifkan" : "Akun diaktifkan"); await refreshAccounts(); }
+    catch (error) { notify(error instanceof Error ? error.message : "Status gagal diubah"); }
+  };
+  const remove = async (account: WorkspaceAccount) => {
+    if (!window.confirm(`Hapus akun ${account.full_name}? Data login dan aksesnya akan dihapus permanen.`)) return;
+    if (previewMode) { notify("Akun contoh tidak dihapus"); return; }
+    try { await manageAccount({ action: "delete", userId: account.user_id }); notify("Akun berhasil dihapus"); await refreshAccounts(); }
+    catch (error) { notify(error instanceof Error ? error.message : "Akun gagal dihapus"); }
+  };
+  const scopeName = (account: WorkspaceAccount) => workspace.groups.find((item) => item.id === account.group_id)?.name ?? workspace.villages.find((item) => item.id === account.village_id)?.name ?? workspace.areas.find((item) => item.id === account.area_id)?.name ?? "Seluruh sistem";
+  const shownAccounts = superView ? accounts : accounts.filter((account) => account.role !== "super_admin");
+
   return <>
-    <PageHeader title="Tim & Akses" subtitle="Anggota, lingkup akses, dan aktivitas" action={<button className="primary-icon" onClick={() => { setOpen(true); setLink(""); }} aria-label="Buat undangan"><Plus size={20} /></button>} />
-    <div className="team-list"><Member initials="AS" name="Ahmad Syafi'i" role="Penanggung Jawab Kelompok" status="Aktif sekarang" /><Member initials="SF" name="Siti Fatimah" role="Pengajar • Kelas Al-Fatihah" status="Login 18.42" /><Member initials="BR" name="Budi Rahman" role="Pengajar • Fiqih Dasar" status="Login kemarin" /></div>
-    <SectionTitle title="Aktivitas terbaru" />
-    <div className="timeline"><p><i />18.42 <strong>Siti Fatimah</strong> mengisi presensi</p><p><i />17.58 <strong>Ahmad Syafi'i</strong> mengubah jadwal</p><p><i />16.30 <strong>Budi Rahman</strong> login</p></div>
-    {open ? <div className="editor-overlay" role="dialog" aria-modal="true" aria-label="Buat undangan anggota"><section className="editor-panel invite-panel"><div className="editor-head"><div><span className="eyebrow">AKSES ANGGOTA</span><h2>Buat tautan undangan</h2></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Tutup"><X size={19} /></button></div>{link ? <><div className="invite-result"><CheckCircle size={24} weight="fill" /><span><strong>Tautan siap dibagikan</strong><small>Penerima akan memilih username dan password. Tautan berlaku satu kali selama 7 hari.</small></span></div><label className="field"><span>Tautan undangan</span><KeyboardInput value={link} readOnly /></label><button className="primary-button" onClick={async () => { await navigator.clipboard.writeText(link); notify("Tautan undangan disalin"); }}>Salin tautan</button></> : <><label className="field"><span>Nama lengkap pengajar</span><KeyboardInput value={fullName} onChange={(event) => setFullName(event.target.value)} /></label><label className="field"><span>Akses</span><select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as typeof inviteRole)}><option value="pengajar">Dewan Guru / Pengajar</option><option value="pj_kelompok">Penanggung Jawab Kelompok</option></select></label><label className="field"><span>Kelompok</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)}>{workspace.groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label><button className="primary-button" disabled={saving || !fullName.trim() || (!previewMode && !groupId)} onClick={() => void createInvite()}>{saving ? "Membuat…" : "Buat tautan"}</button></>}</section></div> : null}
+    <PageHeader title={superView ? "Super Admin" : "Tim & Akses"} subtitle={superView ? "Kontrol user, tingkatan akses, status, dan riwayat login" : "Kelola anggota yang berada dalam lingkup Anda"} action={canCreate ? <button className="primary-icon" onClick={openCreate} aria-label="Tambah user"><Plus size={20} /></button> : undefined} />
+    <section className="metric-strip"><Metric value={String(shownAccounts.length)} label="Total user" /><Metric value={String(shownAccounts.filter((item) => item.is_active).length)} label="Aktif" /><Metric value={String(shownAccounts.filter((item) => !item.is_active).length)} label="Nonaktif" /></section>
+    <div className="team-list">{shownAccounts.length ? shownAccounts.map((account) => <Member key={account.membership_id} account={account} scope={scopeName(account)} onEdit={() => openEdit(account)} onStatus={() => void setStatus(account)} onDelete={() => void remove(account)} />) : <EmptyState icon={<Users size={30} />} title="Belum ada anggota" text="Tekan tombol tambah untuk membuat username dan password baru." />}</div>
+    {superView ? <><SectionTitle title="Riwayat aktivitas akun" /><div className="timeline">{activity.length ? activity.map((item) => <p key={item.id}><i />{new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(item.created_at))} <strong>{accounts.find((account) => account.user_id === item.actor_id)?.full_name ?? "Sistem"}</strong> {item.action === "user_login" ? "login" : item.action.replaceAll("_", " ")}</p>) : <p>Belum ada aktivitas login yang tercatat.</p>}</div></> : null}
+    {open ? <div className="editor-overlay" role="dialog" aria-modal="true" aria-label={editing ? "Edit user" : "Tambah user"}><section className="editor-panel account-panel"><div className="editor-head"><div><span className="eyebrow">{editing ? "EDIT LOGIN" : "USER BARU"}</span><h2>{editing ? editing.full_name : "Buat akun langsung"}</h2></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Tutup"><X size={19} /></button></div>
+      <label className="field"><span>Nama lengkap</span><KeyboardInput value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
+      <label className="field"><span>Username</span><KeyboardInput value={username} onChange={(event) => setUsername(event.target.value.toLowerCase())} autoCapitalize="none" spellCheck={false} /></label>
+      <label className="field"><span>{editing ? "Password baru (kosongkan jika tetap)" : "Password awal"}</span><KeyboardInput value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="new-password" /></label>
+      {!editing ? <><label className="field"><span>Tingkatan akses</span><select value={accountRole} onChange={(event) => setAccountRole(event.target.value as AccountRole)}>{availableRoles.map((item) => <option key={item} value={item}>{roleLabels[item]}</option>)}</select></label>
+        {accountRole === "admin_daerah" ? <label className="field"><span>Daerah</span><select value={areaId} onChange={(event) => setAreaId(event.target.value)}>{workspace.areas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : null}
+        {accountRole === "admin_desa" ? <><label className="field"><span>Daerah</span><select value={areaId} onChange={(event) => setAreaId(event.target.value)}>{workspace.areas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="field"><span>Desa</span><select value={villageId} onChange={(event) => setVillageId(event.target.value)}>{visibleVillages.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></> : null}
+        {["pj_kelompok", "pengajar"].includes(accountRole) ? <><label className="field"><span>Desa</span><select value={villageId} onChange={(event) => setVillageId(event.target.value)}>{visibleVillages.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="field"><span>Kelompok</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)}>{visibleGroups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></> : null}</> : <div className="account-scope-note"><strong>{roleLabels[editing.role]}</strong><span>{scopeName(editing)}</span></div>}
+      <button className="primary-button" disabled={saving || !fullName.trim() || !username.trim() || (!editing && password.length < 8)} onClick={() => void submit()}>{saving ? "Menyimpan…" : editing ? "Simpan perubahan" : "Buat user"}</button>
+    </section></div> : null}
   </>;
 }
 
-function Member({ initials, name, role, status }: { initials: string; name: string; role: string; status: string }) {
-  return <button className="student-row"><Avatar initials={initials} /><span><strong>{name}</strong><small>{role}</small><em>{status}</em></span><CaretRight size={17} /></button>;
+function Member({ account, scope, onEdit, onStatus, onDelete }: { account: WorkspaceAccount; scope: string; onEdit: () => void; onStatus: () => void; onDelete: () => void }) {
+  const initials = account.full_name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const lastLogin = account.last_login_at ? `Login ${new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(account.last_login_at))}` : "Belum pernah login";
+  return <article className="member-card"><Avatar initials={initials || "U"} muted={!account.is_active} /><span className="member-main"><strong>{account.full_name}</strong><small>@{account.username ?? "belum-diatur"} • {roleLabels[account.role]}</small><em>{scope} • {lastLogin}</em></span><span className={cx("status", account.is_active ? "success" : "warning")}>{account.is_active ? "Aktif" : "Nonaktif"}</span>{account.role !== "super_admin" ? <div className="member-actions"><button onClick={onEdit} aria-label={`Edit ${account.full_name}`}><PencilSimple size={16} /></button><button onClick={onStatus}>{account.is_active ? "Nonaktifkan" : "Aktifkan"}</button><button className="danger" onClick={onDelete} aria-label={`Hapus ${account.full_name}`}><Trash size={16} /></button></div> : null}</article>;
 }
 
 function Chat({ notify }: { notify: (message: string) => void }) {
@@ -534,55 +619,39 @@ function Settings({ dark, setDark, notify, onSignOut }: { dark: boolean; setDark
   </>;
 }
 
-function AuthScreen({ ready, inviteToken }: { ready: boolean; inviteToken: string | null }) {
+function AuthScreen({ ready, externalMessage, clearExternalMessage }: { ready: boolean; externalMessage: string | null; clearExternalMessage: () => void }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [invite, setInvite] = useState<{ fullName: string; role: string; expiresAt: string } | null>(null);
-
-  useEffect(() => {
-    if (!supabase || !inviteToken) return;
-    setLoading(true);
-    supabase.functions.invoke("accept-invitation", { body: { action: "inspect", token: inviteToken } }).then(({ data, error }) => {
-      if (error || !data?.fullName) setMessage("Undangan tidak ditemukan, kedaluwarsa, atau sudah dipakai.");
-      else setInvite(data);
-      setLoading(false);
-    });
-  }, [inviteToken]);
 
   const submit = async () => {
     const username = identifier.trim().toLowerCase();
-    const email = username.includes("@") ? username : `${username}@accounts.onepro.local`;
-    if (!supabase || !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username.replace(/@.*$/, "")) || password.length < 8) {
-      setMessage("Lengkapi data dan gunakan password minimal 8 karakter.");
+    if (username.includes("@")) { setMessage("Masukkan username, bukan alamat email."); return; }
+    if (!supabase || !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username) || password.length < 8) {
+      setMessage("Masukkan username yang benar dan password minimal 8 karakter.");
       return;
     }
+    clearExternalMessage();
     setLoading(true);
     setMessage(null);
-    if (inviteToken) {
-      if (!invite) { setLoading(false); setMessage("Undangan belum siap digunakan."); return; }
-      const accepted = await supabase.functions.invoke("accept-invitation", { body: { action: "accept", token: inviteToken, username: username.replace(/@.*$/, ""), password } });
-      if (accepted.error) { setLoading(false); setMessage(accepted.data?.error ?? accepted.error.message); return; }
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-    const result = await supabase.auth.signInWithPassword({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email: `${username}@accounts.onepro.local`, password });
     setLoading(false);
-    if (result.error) setMessage(result.error.message);
+    if (result.error) setMessage("Username atau password salah.");
   };
 
   return <main className="auth-screen">
     <section className="auth-brand"><span className="auth-logo" /><div><strong>One Pro</strong><small>Jurnal Digital</small></div></section>
     <section className="auth-card">
       <span className="eyebrow">MALANG TIMUR</span>
-      <h1>{inviteToken ? "Aktifkan akun" : "Masuk"}</h1>
-      <p>{invite ? `${invite.fullName} • ${invite.role === "pengajar" ? "Dewan Guru / Pengajar" : "Penanggung Jawab Kelompok"}` : inviteToken ? "Memeriksa tautan undangan…" : "Gunakan akun anggota yang telah terdaftar."}</p>
+      <h1>Masuk</h1>
+      <p>Masuk dengan username dan password yang dibuat oleh pengelola.</p>
       {!ready ? <div className="auth-loading">Memeriksa sesi…</div> : <>
-        <label className="auth-field"><span>Username</span><input value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoCapitalize="none" spellCheck={false} autoComplete="username" /></label>
+        <label className="auth-field"><span>Username</span><input value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoCapitalize="none" spellCheck={false} autoComplete="username" placeholder="contoh: superadmin" /></label>
         <label className="auth-field"><span>Password</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" /></label>
-        {message ? <div className="auth-message" role="status">{message}</div> : null}
-        <button className="primary-button" disabled={loading || (!!inviteToken && !invite)} onClick={submit}>{loading ? "Memproses…" : inviteToken ? "Aktifkan & masuk" : "Masuk"}</button>
-        <div className="auth-help">{invite ? "Username tidak dapat sama dengan anggota lain. Tautan hanya dapat digunakan satu kali." : "Akun baru dibuat melalui tautan undangan PJ atau Admin."}</div>
+        {message || externalMessage ? <div className="auth-message" role="status">{message ?? externalMessage}</div> : null}
+        <button className="primary-button" disabled={loading} onClick={submit}>{loading ? "Memeriksa akun…" : "Masuk"}</button>
+        <div className="auth-help">Tidak menggunakan email atau tautan undangan.</div>
       </>}
     </section>
   </main>;

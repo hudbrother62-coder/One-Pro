@@ -23,6 +23,22 @@ export type WorkspaceClass = { id: string; group_id: string; name: string; descr
 export type WorkspaceGroup = { id: string; village_id: string; name: string; study_days: number[]; reminder_time: string };
 export type WorkspaceSchedule = { id: string; class_id: string; weekday: number; start_time: string; end_time: string; material_plan: string | null; is_active: boolean };
 export type WorkspaceEnrollment = { id: string; class_id: string; student_id: string; ended_on: string | null };
+export type WorkspaceArea = { id: string; name: string };
+export type WorkspaceVillage = { id: string; area_id: string; name: string };
+export type AccountRole = "super_admin" | "admin_daerah" | "admin_desa" | "pj_kelompok" | "pengajar";
+export type WorkspaceAccount = {
+  membership_id: string;
+  user_id: string;
+  role: AccountRole;
+  area_id: string | null;
+  village_id: string | null;
+  group_id: string | null;
+  is_active: boolean;
+  username: string | null;
+  full_name: string;
+  last_login_at: string | null;
+};
+export type LoginActivity = { id: number; actor_id: string | null; action: string; entity_id: string | null; created_at: string };
 
 export type WorkspaceData = {
   groups: WorkspaceGroup[];
@@ -30,20 +46,24 @@ export type WorkspaceData = {
   students: WorkspaceStudent[];
   schedules: WorkspaceSchedule[];
   enrollments: WorkspaceEnrollment[];
+  areas: WorkspaceArea[];
+  villages: WorkspaceVillage[];
 };
 
-export const emptyWorkspace: WorkspaceData = { groups: [], classes: [], students: [], schedules: [], enrollments: [] };
+export const emptyWorkspace: WorkspaceData = { groups: [], classes: [], students: [], schedules: [], enrollments: [], areas: [], villages: [] };
 
 export async function loadWorkspace(): Promise<WorkspaceData> {
   if (!supabase) return emptyWorkspace;
-  const [groups, classes, students, schedules, enrollments] = await Promise.all([
+  const [areas, villages, groups, classes, students, schedules, enrollments] = await Promise.all([
+    supabase.from("areas").select("id,name").order("name"),
+    supabase.from("villages").select("id,area_id,name").order("name"),
     supabase.from("groups").select("id,village_id,name,study_days,reminder_time").order("name"),
     supabase.from("classes").select("id,group_id,name,description,is_active").order("name"),
     supabase.from("students").select("id,group_id,full_name,nickname,birth_place,birth_date,address,phone,father_name,mother_name,father_phone,mother_phone,school_grade,photo_path,show_photo,status").neq("status", "archived").order("full_name"),
     supabase.from("schedules").select("id,class_id,weekday,start_time,end_time,material_plan,is_active").eq("is_active", true).order("start_time"),
     supabase.from("class_enrollments").select("id,class_id,student_id,ended_on").is("ended_on", null),
   ]);
-  const error = groups.error || classes.error || students.error || schedules.error || enrollments.error;
+  const error = areas.error || villages.error || groups.error || classes.error || students.error || schedules.error || enrollments.error;
   if (error) throw error;
   return {
     groups: (groups.data ?? []) as WorkspaceGroup[],
@@ -51,6 +71,8 @@ export async function loadWorkspace(): Promise<WorkspaceData> {
     students: (students.data ?? []) as WorkspaceStudent[],
     schedules: (schedules.data ?? []) as WorkspaceSchedule[],
     enrollments: (enrollments.data ?? []) as WorkspaceEnrollment[],
+    areas: (areas.data ?? []) as WorkspaceArea[],
+    villages: (villages.data ?? []) as WorkspaceVillage[],
   };
 }
 
@@ -112,25 +134,38 @@ export async function saveDailyJournal(input: { classId: string; userId: string;
   if (error) throw error;
 }
 
-async function hashToken(token: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+export async function loadAccounts() {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const [memberships, profiles, activity] = await Promise.all([
+    supabase.from("memberships").select("id,user_id,role,area_id,village_id,group_id,is_active").order("created_at", { ascending: false }),
+    supabase.from("profiles").select("id,username,full_name,last_login_at,is_active"),
+    supabase.from("audit_logs").select("id,actor_id,action,entity_id,created_at").in("action", ["user_login", "user_created", "user_updated", "user_activated", "user_deactivated", "user_deleted"]).order("created_at", { ascending: false }).limit(50),
+  ]);
+  const error = memberships.error || profiles.error;
+  if (error) throw error;
+  const profileById = new Map((profiles.data ?? []).map((profile) => [profile.id, profile]));
+  const accounts = (memberships.data ?? []).map((membership) => {
+    const profile = profileById.get(membership.user_id);
+    return {
+      membership_id: membership.id,
+      user_id: membership.user_id,
+      role: membership.role,
+      area_id: membership.area_id,
+      village_id: membership.village_id,
+      group_id: membership.group_id,
+      is_active: Boolean(membership.is_active && profile?.is_active),
+      username: profile?.username ?? null,
+      full_name: profile?.full_name ?? "Pengguna",
+      last_login_at: profile?.last_login_at ?? null,
+    } as WorkspaceAccount;
+  });
+  return { accounts, activity: (activity.data ?? []) as LoginActivity[] };
 }
 
-export async function createGroupInvitation(input: { fullName: string; role: "pj_kelompok" | "pengajar"; groupId: string; invitedBy: string }) {
+export async function manageAccount(payload: Record<string, unknown>) {
   if (!supabase) throw new Error("Supabase belum terhubung");
-  const raw = new Uint8Array(32);
-  crypto.getRandomValues(raw);
-  const token = Array.from(raw, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  const tokenHash = await hashToken(token);
-  const { error } = await supabase.from("invitations").insert({
-    full_name: input.fullName.trim(),
-    role: input.role,
-    group_id: input.groupId,
-    token_hash: tokenHash,
-    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    invited_by: input.invitedBy,
-  });
-  if (error) throw error;
-  return `${window.location.origin}/?invite=${token}`;
+  const { data, error } = await supabase.functions.invoke("manage-users", { body: payload });
+  if (error) throw new Error((data as { error?: string } | null)?.error ?? error.message);
+  if ((data as { error?: string } | null)?.error) throw new Error((data as { error: string }).error);
+  return data;
 }
