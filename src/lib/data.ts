@@ -24,6 +24,8 @@ export type WorkspaceGroup = { id: string; village_id: string; name: string; stu
 export type WorkspaceSchedule = { id: string; class_id: string; weekday: number; start_time: string; end_time: string; material_plan: string | null; is_active: boolean };
 export type WorkspaceEnrollment = { id: string; class_id: string; student_id: string; ended_on: string | null };
 export type WorkspaceTarget = { id: string; version_id: string; school_grade: number; code: string | null; title: string; description: string | null; target_value: number | null; target_unit: string | null; sort_order: number };
+export type ChatThread = { id: string; title: string | null; group_id: string | null; created_at: string; is_announcement: boolean };
+export type ChatMessage = { id: string; thread_id: string; sender_id: string | null; body: string; created_at: string };
 export type WorkspaceArea = { id: string; name: string };
 export type WorkspaceVillage = { id: string; area_id: string; name: string };
 export type AccountRole = "super_admin" | "admin_daerah" | "admin_desa" | "pj_kelompok" | "pengajar";
@@ -194,6 +196,32 @@ export async function loadAttendanceSummary() {
   const { data, error } = await supabase.from("attendance_records").select("student_id,status,attendance_sessions!inner(session_date,class_id)").order("recorded_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((row) => ({ student_id: row.student_id, status: row.status, session_date: (row.attendance_sessions as unknown as { session_date: string }).session_date, class_id: (row.attendance_sessions as unknown as { class_id: string }).class_id }));
+}
+
+export async function loadChat() {
+  if (!supabase) return { threads: [] as ChatThread[], messages: [] as ChatMessage[] };
+  const [threads, messages] = await Promise.all([
+    supabase.from("chat_threads").select("id,title,group_id,created_at,is_announcement").order("created_at", { ascending: false }),
+    supabase.from("chat_messages").select("id,thread_id,sender_id,body,created_at").is("deleted_at", null).order("created_at", { ascending: true }),
+  ]);
+  if (threads.error) throw threads.error;
+  if (messages.error) throw messages.error;
+  return { threads: (threads.data ?? []) as ChatThread[], messages: (messages.data ?? []) as ChatMessage[] };
+}
+
+export async function createChatThread(input: { title: string; groupId: string; userId: string }) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const { data: thread, error } = await supabase.from("chat_threads").insert({ title: input.title.trim(), group_id: input.groupId, created_by: input.userId }).select("id").single();
+  if (error) throw error;
+  const { error: participantError } = await supabase.from("chat_participants").insert({ thread_id: thread.id, user_id: input.userId });
+  if (participantError) { await supabase.from("chat_threads").delete().eq("id", thread.id); throw participantError; }
+  return thread.id as string;
+}
+
+export async function sendChatMessage(input: { threadId: string; userId: string; body: string }) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const { error } = await supabase.from("chat_messages").insert({ thread_id: input.threadId, sender_id: input.userId, body: input.body.trim() });
+  if (error) throw error;
 }
 
 export async function loadAccounts() {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "@fontsource-variable/plus-jakarta-sans";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { deleteSchedule, deleteTarget, emptyWorkspace, loadAccounts, loadAttendanceSummary, loadTargets, loadWorkspace, manageAccount, saveAttendance, saveClass, saveDailyJournal, saveSchedule, saveStudent, saveTarget, setStudentStatus, type AccountRole, type LoginActivity, type WorkspaceAccount, type WorkspaceData, type WorkspaceStudent, type WorkspaceTarget } from "./lib/data";
+import { createChatThread, deleteSchedule, deleteTarget, emptyWorkspace, loadAccounts, loadAttendanceSummary, loadChat, loadTargets, loadWorkspace, manageAccount, saveAttendance, saveClass, saveDailyJournal, saveSchedule, saveStudent, saveTarget, sendChatMessage, setStudentStatus, type AccountRole, type ChatMessage, type ChatThread, type LoginActivity, type WorkspaceAccount, type WorkspaceData, type WorkspaceStudent, type WorkspaceTarget } from "./lib/data";
 import {
   Bell,
   CalendarBlank,
@@ -207,7 +207,7 @@ export default function Prototype() {
           {screen === "reports" ? <Reports notify={notify} workspace={workspace} previewMode={previewMode} /> : null}
           {screen === "team" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} /> : null}
           {screen === "admin" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} superView /> : null}
-          {screen === "chat" ? <Chat notify={notify} /> : null}
+          {screen === "chat" ? <Chat notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
           {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => supabase?.auth.signOut()} /> : null}
         </main>
       </MobileScroll>
@@ -632,12 +632,46 @@ function Member({ account, scope, onEdit, onStatus, onDelete }: { account: Works
   return <article className="member-card"><Avatar initials={initials || "U"} muted={!account.is_active} /><span className="member-main"><strong>{account.full_name}</strong><small>@{account.username ?? "belum-diatur"} • {roleLabels[account.role]}</small><em>{scope} • {lastLogin}</em></span><span className={cx("status", account.is_active ? "success" : "warning")}>{account.is_active ? "Aktif" : "Nonaktif"}</span>{account.role !== "super_admin" ? <div className="member-actions"><button onClick={onEdit} aria-label={`Edit ${account.full_name}`}><PencilSimple size={16} /></button><button onClick={onStatus}>{account.is_active ? "Nonaktifkan" : "Aktifkan"}</button><button className="danger" onClick={onDelete} aria-label={`Hapus ${account.full_name}`}><Trash size={16} /></button></div> : null}</article>;
 }
 
-function Chat({ notify }: { notify: (message: string) => void }) {
+function Chat({ notify, workspace, userId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean }) {
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [groupId, setGroupId] = useState("");
+  const [body, setBody] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = async () => {
+    if (previewMode) return;
+    setLoading(true);
+    try { const result = await loadChat(); setThreads(result.threads); setMessages(result.messages); setSelectedId((current) => current ?? result.threads[0]?.id ?? null); }
+    catch (error) { notify(error instanceof Error ? error.message : "Chat gagal dimuat"); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void refresh(); }, [previewMode]);
+  const selected = threads.find((thread) => thread.id === selectedId) ?? null;
+  const selectedMessages = messages.filter((message) => message.thread_id === selectedId);
+  const groupName = (id: string | null) => workspace.groups.find((group) => group.id === id)?.name ?? "Percakapan";
+  const create = async () => {
+    if (!userId || !title.trim() || !groupId) return;
+    setCreating(true);
+    try { const id = await createChatThread({ title, groupId, userId }); setTitle(""); setCreating(false); notify("Percakapan dibuat"); await refresh(); setSelectedId(id); }
+    catch (error) { setCreating(false); notify(error instanceof Error ? error.message : "Percakapan gagal dibuat"); }
+  };
+  const send = async () => {
+    if (!userId || !selectedId || !body.trim()) return;
+    try { await sendChatMessage({ threadId: selectedId, userId, body }); setBody(""); await refresh(); }
+    catch (error) { notify(error instanceof Error ? error.message : "Pesan gagal dikirim"); }
+  };
+  if (previewMode) return <><PageHeader title="Komunikasi" subtitle="Preview data chat" /><div className="chat-list"><ChatRow initials="MT" title="Daerah Malang Timur" message="Mohon lengkapi jurnal bulanan sebelum Jumat." time="19.12" unread="2" /><ChatRow initials="DM" title="Desa Mangliawan" message="Jadwal musyawarah sudah diperbarui." time="17.30" /></div></>;
   return <>
-    <PageHeader title="Komunikasi" subtitle="Daerah, desa, dan kelompok" action={<button className="primary-icon"><Plus size={20} /></button>} />
-    <div className="filter-pills"><button className="active">Semua</button><button>Daerah</button><button>Desa</button><button>Kelompok</button></div>
-    <div className="chat-list"><ChatRow initials="MT" title="Daerah Malang Timur" message="Mohon lengkapi jurnal bulanan sebelum Jumat." time="19.12" unread="2" /><ChatRow initials="DM" title="Desa Mangliawan" message="Jadwal musyawarah sudah diperbarui." time="17.30" /><ChatRow initials="ZS" title="Kelompok Zam Zam" message="Baik, laporan sudah kami terima." time="Kemarin" /></div>
-    <button className="secondary-button" onClick={() => notify("Pengumuman baru dapat dibuat")}>Buat pengumuman penting</button>
+    <PageHeader title="Komunikasi" subtitle="Daerah, desa, dan kelompok" action={<button className="primary-icon" onClick={() => setCreating(true)} aria-label="Buat percakapan"><Plus size={20} /></button>} />
+    <div className="chat-layout">
+      <div className="chat-list">{loading ? <div className="chat-empty">Memuat percakapan…</div> : threads.length ? threads.map((thread) => <button key={thread.id} className={cx("chat-row", selectedId === thread.id && "active")} onClick={() => setSelectedId(thread.id)}><Avatar initials={groupName(thread.group_id).slice(0, 2).toUpperCase()} /><span><strong>{thread.title ?? groupName(thread.group_id)}</strong><small>{groupName(thread.group_id)}</small></span><em>{new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short" }).format(new Date(thread.created_at))}</em></button>) : <div className="chat-empty">Belum ada percakapan. Buat percakapan untuk mulai berkomunikasi.</div>}</div>
+      <section className="chat-thread">{selected ? <><div className="chat-thread-head"><strong>{selected.title ?? groupName(selected.group_id)}</strong><small>{groupName(selected.group_id)}</small></div><div className="chat-messages">{selectedMessages.length ? selectedMessages.map((message) => <div key={message.id} className={cx("chat-message", message.sender_id === userId && "mine")}><p>{message.body}</p><small>{new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))}</small></div>) : <div className="chat-empty">Belum ada pesan.</div>}</div><div className="chat-composer"><KeyboardInput value={body} onChange={(event) => setBody(event.target.value)} placeholder="Tulis pesan…" onKeyDown={(event) => { if (event.key === "Enter") void send(); }} /><button className="primary-icon" onClick={() => void send()} aria-label="Kirim pesan"><CaretRight size={20} /></button></div></> : <div className="chat-empty">Pilih percakapan di sebelah kiri.</div>}</section>
+    </div>
+    {creating ? <div className="editor-overlay" role="dialog" aria-modal="true"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">CHAT BARU</span><h2>Buat percakapan</h2></div><button className="icon-button" onClick={() => setCreating(false)} aria-label="Tutup"><X size={19} /></button></div><label className="field"><span>Judul</span><KeyboardInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Contoh: Koordinasi jurnal" /></label><label className="field"><span>Kelompok</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)}><option value="">Pilih kelompok</option>{workspace.groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label><button className="primary-button" disabled={creating || !title.trim() || !groupId} onClick={() => void create()}>{creating ? "Menyimpan…" : "Buat percakapan"}</button></section></div> : null}
   </>;
 }
 
