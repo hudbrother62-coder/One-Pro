@@ -519,8 +519,6 @@ function Settings({ dark, setDark, notify, onSignOut }: { dark: boolean; setDark
 }
 
 function AuthScreen({ ready }: { ready: boolean }) {
-  const [register, setRegister] = useState(false);
-  const [fullName, setFullName] = useState("");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -529,33 +527,29 @@ function AuthScreen({ ready }: { ready: boolean }) {
   const submit = async () => {
     const username = identifier.trim().toLowerCase();
     const email = username.includes("@") ? username : `${username}@accounts.onepro.local`;
-    if (!supabase || !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username.replace(/@.*$/, "")) || password.length < 8 || (register && !fullName.trim())) {
+    if (!supabase || !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username.replace(/@.*$/, "")) || password.length < 8) {
       setMessage("Lengkapi data dan gunakan password minimal 8 karakter.");
       return;
     }
     setLoading(true);
     setMessage(null);
-    const result = register
-      ? await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName.trim(), username: username.replace(/@.*$/, "") } } })
-      : await supabase.auth.signInWithPassword({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (result.error) setMessage(result.error.message);
-    else if (register && !result.data.session) setMessage("Akun dibuat. Periksa email untuk konfirmasi sebelum masuk.");
   };
 
   return <main className="auth-screen">
     <section className="auth-brand"><span className="auth-logo" /><div><strong>One Pro</strong><small>Jurnal Digital</small></div></section>
     <section className="auth-card">
       <span className="eyebrow">MALANG TIMUR</span>
-      <h1>{register ? "Daftar akun" : "Masuk"}</h1>
-      <p>{register ? "Akun pertama menjadi Super Admin. Anggota berikutnya masuk melalui undangan." : "Gunakan akun anggota yang telah terdaftar."}</p>
+      <h1>Masuk</h1>
+      <p>Gunakan akun anggota yang telah terdaftar.</p>
       {!ready ? <div className="auth-loading">Memeriksa sesi…</div> : <>
-        {register ? <label className="auth-field"><span>Nama lengkap</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} autoComplete="name" /></label> : null}
         <label className="auth-field"><span>Username</span><input value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoCapitalize="none" spellCheck={false} autoComplete="username" /></label>
-        <label className="auth-field"><span>Password</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete={register ? "new-password" : "current-password"} /></label>
+        <label className="auth-field"><span>Password</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" /></label>
         {message ? <div className="auth-message" role="status">{message}</div> : null}
-        <button className="primary-button" disabled={loading} onClick={submit}>{loading ? "Memproses…" : register ? "Buat akun" : "Masuk"}</button>
-        <button className="auth-switch" onClick={() => { setRegister(!register); setMessage(null); }}>{register ? "Sudah punya akun? Masuk" : "Belum punya akun? Daftar"}</button>
+        <button className="primary-button" disabled={loading} onClick={submit}>{loading ? "Memproses…" : "Masuk"}</button>
+        <div className="auth-help">Akun baru dibuat melalui tautan undangan PJ atau Admin.</div>
       </>}
     </section>
   </main>;
