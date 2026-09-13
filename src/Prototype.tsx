@@ -80,6 +80,7 @@ export default function Prototype() {
   const [role, setRole] = useState<Role>("PJ Kelompok");
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [accessReady, setAccessReady] = useState(false);
@@ -161,8 +162,17 @@ export default function Prototype() {
     return <div className={cx("one-pro-shell", dark && "is-dark")}><div className="full-loading" role="status">Memeriksa akses akun…</div></div>;
   }
 
-  const allowedNavigation = role === "Super Admin" ? [{ ...navItems[0] }, superAdminItem, menuItems.find((item) => item.id === "settings")!] : desktopNavItems;
-  const allowedMenuItems = role === "Super Admin" ? maintenanceMenuItems : menuItems;
+  const roleScreens: Record<Role, Screen[]> = {
+    "Super Admin": ["home", "admin", "settings"],
+    "Admin Daerah": ["home", "agenda", "reports", "students", "targets", "team", "chat", "settings"],
+    "Admin Desa": ["home", "agenda", "reports", "students", "targets", "team", "chat", "settings"],
+    "PJ Kelompok": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "team", "chat", "settings"],
+    "Pengajar": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "chat", "settings"],
+  };
+  const allowedIds = roleScreens[role];
+  const allowedNavigation = role === "Super Admin" ? [{ ...navItems[0] }, superAdminItem, menuItems.find((item) => item.id === "settings")!] : desktopNavItems.filter((item) => allowedIds.includes(item.id));
+  const allowedMenuItems = role === "Super Admin" ? maintenanceMenuItems : menuItems.filter((item) => allowedIds.includes(item.id));
+  const signOut = async () => { setMenuOpen(false); setNotificationsOpen(false); await supabase?.auth.signOut(); };
 
   return (
     <div className={cx("one-pro-shell", dark && "is-dark")}>
@@ -178,7 +188,7 @@ export default function Prototype() {
             return <button key={item.id} className={cx(screen === item.id && "active")} onClick={() => go(item.id)}><Icon size={20} weight={screen === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
           })}
         </nav>
-        <div className="desktop-sidebar-footer"><span className="connection-dot" />Supabase terhubung</div>
+        <button className="desktop-sidebar-footer logout-link" onClick={() => void signOut()}><SignOut size={18} />Keluar akun</button>
       </aside>
       <header className="topbar">
         <button className="brand-button" onClick={() => go("home")} aria-label="Buka beranda">
@@ -189,8 +199,8 @@ export default function Prototype() {
           <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label={dark ? "Gunakan mode terang" : "Gunakan mode gelap"}>
             {dark ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <button className="icon-button notification-button" onClick={() => notify("3 notifikasi belum dibaca")} aria-label="Buka notifikasi">
-            <Bell size={20} /><span>3</span>
+          <button className="icon-button notification-button" onClick={() => setNotificationsOpen(true)} aria-label="Buka notifikasi">
+            <Bell size={20} /><span>{workspace.schedules.length ? 2 : 1}</span>
           </button>
         </div>
       </header>
@@ -199,21 +209,21 @@ export default function Prototype() {
         <main className={cx("screen-content", `screen-${screen}`)} data-testid="one-pro-app">
           {dataState === "loading" ? <div className="data-sync" role="status">Menyinkronkan data…</div> : null}
           {screen === "home" ? role === "Super Admin" ? <SuperAdminHome go={go} /> : <Home role={role} setRole={setRole} go={go} previewMode={previewMode} workspace={workspace} /> : null}
-          {screen === "agenda" ? <Agenda notify={notify} go={go} workspace={workspace} refresh={refreshWorkspace} userId={authUser?.id} previewMode={previewMode} /> : null}
+          {screen === "agenda" ? <Agenda notify={notify} go={go} workspace={workspace} refresh={refreshWorkspace} userId={authUser?.id} previewMode={previewMode} canManage={role === "PJ Kelompok"} /> : null}
           {screen === "attendance" ? <AttendanceScreen notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
           {screen === "journal" ? <Journal notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
           {screen === "students" ? <Students notify={notify} workspace={workspace} refresh={refreshWorkspace} previewMode={previewMode} /> : null}
-          {screen === "targets" ? <Targets notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
+          {screen === "targets" ? <Targets notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} canManage={role === "Admin Daerah"} /> : null}
           {screen === "reports" ? <Reports notify={notify} workspace={workspace} previewMode={previewMode} /> : null}
           {screen === "team" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} /> : null}
           {screen === "admin" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} superView /> : null}
           {screen === "chat" ? <Chat notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
-          {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => supabase?.auth.signOut()} /> : null}
+          {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => void signOut()} role={role} workspace={workspace} /> : null}
         </main>
       </MobileScroll>
 
       <nav className="bottom-nav" aria-label="Navigasi utama">
-        {(role === "Super Admin" ? [navItems[0]] : navItems).map((item) => {
+        {(role === "Super Admin" ? [navItems[0]] : navItems.filter((item) => allowedIds.includes(item.id))).map((item) => {
           const Icon = item.icon;
           return <button key={item.id} className={cx(screen === item.id && "active")} onClick={() => go(item.id)}><Icon size={21} weight={screen === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
         })}
@@ -230,6 +240,7 @@ export default function Prototype() {
       </BottomSheet>
 
       {toast ? <div className="toast" role="status"><CheckCircle size={20} weight="fill" />{toast}</div> : null}
+      {notificationsOpen ? <div className="editor-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setNotificationsOpen(false); }}><section className="editor-panel notification-panel"><div className="editor-head"><div><span className="eyebrow">NOTIFIKASI</span><h2>Pengingat kegiatan</h2></div><button className="icon-button" onClick={() => setNotificationsOpen(false)}><X size={19}/></button></div><div className="card-list"><ActionRow icon={<CalendarBlank size={19}/>} title="Periksa agenda hari ini" meta="Pastikan materi dan jam pengajian sudah diisi" onClick={() => { setNotificationsOpen(false); go("agenda"); }}/><ActionRow icon={<ClipboardText size={19}/>} title="Jurnal belum lengkap" meta="Pengingat dikirim pukul 20.00 pada hari mengaji" onClick={() => { setNotificationsOpen(false); go(allowedIds.includes("journal") ? "journal" : "reports"); }}/></div></section></div> : null}
     </div>
   );
 }
@@ -332,10 +343,11 @@ function Village({ rank, name, attendance, progress, status, warning }: { rank: 
   return <button className="village-row"><span className="rank">{rank}</span><span className="village-main"><strong>{name}</strong><small>Kehadiran {attendance} · Target {progress}</small></span><span className={cx("status", warning ? "warning" : "success")}>{status}</span><CaretRight size={16} /></button>;
 }
 
-function Agenda({ notify, go, workspace, refresh, userId, previewMode }: { notify: (message: string) => void; go: (screen: Screen) => void; workspace: WorkspaceData; refresh: () => Promise<void>; userId?: string; previewMode: boolean }) {
+function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage }: { notify: (message: string) => void; go: (screen: Screen) => void; workspace: WorkspaceData; refresh: () => Promise<void>; userId?: string; previewMode: boolean; canManage: boolean }) {
   const today = new Date();
   const [activeDate, setActiveDate] = useState(today.toISOString().slice(0, 10));
-  const [open, setOpen] = useState<"schedule" | "class" | null>(null);
+  const [open, setOpen] = useState<"schedule" | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [classId, setClassId] = useState(workspace.classes[0]?.id ?? "");
   const [groupId, setGroupId] = useState(workspace.groups[0]?.id ?? "");
   const [className, setClassName] = useState("");
@@ -343,7 +355,9 @@ function Agenda({ notify, go, workspace, refresh, userId, previewMode }: { notif
   const [endTime, setEndTime] = useState("17:30");
   const [materialPlan, setMaterialPlan] = useState("");
   const [saving, setSaving] = useState(false);
-  const days = Array.from({ length: 7 }, (_, index) => { const date = new Date(today); date.setDate(today.getDate() - today.getDay() + index); return date; });
+  const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+  const gridStart = new Date(monthStart); gridStart.setDate(1 - monthStart.getDay());
+  const days = Array.from({ length: 42 }, (_, index) => { const date = new Date(gridStart); date.setDate(gridStart.getDate() + index); return date; });
   const activeWeekday = new Date(`${activeDate}T12:00:00`).getDay();
   const schedules = previewMode ? [] : workspace.schedules.filter((item) => item.weekday === activeWeekday);
   const submitClass = async () => {
@@ -357,12 +371,12 @@ function Agenda({ notify, go, workspace, refresh, userId, previewMode }: { notif
     setSaving(true); try { await saveSchedule({ classId, teacherId: userId, weekday: activeWeekday, startTime, endTime, materialPlan }); await refresh(); notify("Jadwal berhasil disimpan"); setOpen(null); } catch (error) { notify(error instanceof Error ? error.message : "Jadwal gagal disimpan"); } finally { setSaving(false); }
   };
   return <>
-    <PageHeader title="Jadwal Mengaji" subtitle="Atur kelas, jam, dan materi per hari" action={<div className="header-actions"><button className="secondary-icon" onClick={() => setOpen("class")} aria-label="Tambah kelas"><Student size={19} /></button><button className="primary-icon" onClick={() => { setClassId(workspace.classes[0]?.id ?? ""); setOpen("schedule"); }} aria-label="Tambah jadwal"><Plus size={20} /></button></div>} />
-    <div className="day-picker">{days.map((date) => { const key = date.toISOString().slice(0, 10); return <button key={key} className={cx(activeDate === key && "active")} onClick={() => setActiveDate(key)}><small>{new Intl.DateTimeFormat("id-ID", { weekday: "short" }).format(date)}</small><strong>{date.getDate()}</strong></button>; })}</div>
-    <SectionTitle title={`${schedules.length} jadwal pada hari ini`} />
+    <PageHeader title="Jadwal Mengaji" subtitle={canManage ? "Atur agenda rutin kelompok" : "Pantau agenda kelompok dalam satu bulan"} action={canManage ? <button className="primary-icon" onClick={() => { setClassId(workspace.classes[0]?.id ?? ""); setOpen("schedule"); }} aria-label="Tambah jadwal"><Plus size={20} /></button> : undefined} />
+    <div className="calendar-head"><button className="icon-button" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1,1))}>‹</button><strong>{new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric"}).format(calendarMonth)}</strong><button className="icon-button" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+1,1))}>›</button></div>
+    <div className="month-calendar"><div className="calendar-weekdays">{["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(d=><span key={d}>{d}</span>)}</div><div className="calendar-grid">{days.map((date) => { const key = date.toISOString().slice(0,10); const count=workspace.schedules.filter(s=>s.weekday===date.getDay()).length; return <button key={key} className={cx(activeDate===key&&"active",date.getMonth()!==calendarMonth.getMonth()&&"outside")} onClick={()=>setActiveDate(key)}><span>{date.getDate()}</span>{count?<i>{count}</i>:null}</button>; })}</div></div>
+    <SectionTitle title={`${schedules.length} jadwal • ${new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(new Date(activeDate+"T12:00:00"))}`} />
     {schedules.length ? <div className="schedule-list card-list">{schedules.map((item) => { const klass = workspace.classes.find((candidate) => candidate.id === item.class_id); return <div className="schedule-row-wrap" key={item.id}><Schedule time={item.start_time.slice(0, 5)} end={item.end_time.slice(0, 5)} title={klass?.name ?? "Kelas"} teacher={item.material_plan || "Materi belum diisi"} status="Terjadwal" tone="neutral" action={() => go("journal")} /><button className="icon-button" onClick={async () => { if (!previewMode) { await deleteSchedule(item.id); await refresh(); notify("Jadwal dinonaktifkan"); } }} aria-label="Nonaktifkan jadwal"><Trash size={16} /></button></div>; })}</div> : <EmptyState icon={<CalendarBlank size={30} />} title="Belum ada jadwal" text="Tambahkan jadwal untuk hari ini agar guru mendapat pengingat." />}
-    <button className="secondary-button" onClick={() => notify("Pilih tiap hari untuk membuat jadwal rutin")}><CalendarBlank size={17} />Buat jadwal rutin</button>
-    {open ? <div className="editor-overlay" role="dialog" aria-modal="true" aria-label={open === "class" ? "Tambah kelas" : "Tambah jadwal"}><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">{open === "class" ? "KELAS BARU" : "JADWAL MENGAJI"}</span><h2>{open === "class" ? "Tambah kelas" : "Tambah jadwal"}</h2></div><button className="icon-button" onClick={() => setOpen(null)} aria-label="Tutup"><X size={19} /></button></div>{open === "class" ? <><label className="field"><span>Kelompok</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)}>{workspace.groups.map((group) => <option value={group.id} key={group.id}>{group.name}</option>)}</select></label><label className="field"><span>Nama kelas</span><KeyboardInput value={className} onChange={(event) => setClassName(event.target.value)} placeholder="Contoh: Kelas Al-Fatihah" /></label><button className="primary-button" disabled={saving} onClick={() => void submitClass()}>{saving ? "Menyimpan…" : "Simpan kelas"}</button></> : <><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{workspace.classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><div className="form-grid two"><label className="field"><span>Mulai</span><KeyboardInput type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="field"><span>Selesai</span><KeyboardInput type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div><label className="field"><span>Materi rencana</span><KeyboardTextarea value={materialPlan} onChange={(event) => setMaterialPlan(event.target.value)} rows={3} placeholder="Materi yang akan diajarkan" /></label><button className="primary-button" disabled={saving || !classId} onClick={() => void submitSchedule()}>{saving ? "Menyimpan…" : "Simpan jadwal"}</button></>}</section></div> : null}
+    {open ? <div className="editor-overlay" onMouseDown={(e)=>{if(e.target===e.currentTarget)setOpen(null)}} role="dialog" aria-modal="true" aria-label="Tambah jadwal"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">JADWAL MENGAJI</span><h2>Tambah agenda</h2></div><button className="icon-button" onClick={() => setOpen(null)} aria-label="Tutup"><X size={19} /></button></div><label className="field"><span>Tanggal</span><KeyboardInput type="date" value={activeDate} onChange={(event)=>setActiveDate(event.target.value)}/></label><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{workspace.classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><div className="form-grid two"><label className="field"><span>Mulai</span><KeyboardInput type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="field"><span>Selesai</span><KeyboardInput type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div><label className="field"><span>Materi rencana</span><KeyboardTextarea value={materialPlan} onChange={(event) => setMaterialPlan(event.target.value)} rows={3} placeholder="Materi yang akan diajarkan" /></label><label className="switch-row"><span><strong>Jadikan jadwal rutin</strong><small>Berulang setiap minggu pada hari yang sama</small></span><span className="status success">Aktif</span></label><button className="primary-button" disabled={saving || !classId} onClick={() => void submitSchedule()}>{saving ? "Menyimpan…" : "Simpan agenda"}</button></section></div> : null}
   </>;
 }
 
@@ -417,7 +431,8 @@ function Journal({ notify, workspace, userId, previewMode }: { notify: (message:
     finally { setSaving(false); }
   };
   return <>
-    <PageHeader title="Jurnal Harian" subtitle="Data jurnal menjadi sumber rekap bulanan dan laporan individu" />
+    <PageHeader title="Jurnal Online" subtitle="Jurnal harian dan perkembangan setiap anak" />
+    <div className="segmented"><button className={cx(!progress&&"active")} onClick={()=>setProgress(false)}>Jurnal Harian</button><button className={cx(progress&&"active")} onClick={()=>setProgress(true)}>Jurnal Siswa</button></div>
     <section className="data-card form-card">
       <div className="form-grid two"><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{previewMode ? <option value="demo">Kelas Al-Fatihah</option> : workspace.classes.filter((item) => item.is_active).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label className="field"><span>Tanggal</span><KeyboardInput type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></div>
       <div className="form-grid two"><label className="field"><span>Jam mulai</span><KeyboardInput type="time" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} /></label><label className="field"><span>Jam selesai</span><KeyboardInput type="time" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} /></label></div>
@@ -426,7 +441,7 @@ function Journal({ notify, workspace, userId, previewMode }: { notify: (message:
       <label className="field"><span>Keluhan atau kendala</span><KeyboardTextarea value={obstacles} onChange={(event) => setObstacles(event.target.value)} placeholder="Kendala yang ditemukan" rows={2} /></label>
       <label className="field"><span>Saran pembenahan berikutnya</span><KeyboardTextarea value={improvementPlan} onChange={(event) => setImprovementPlan(event.target.value)} placeholder="Langkah perbaikan pertemuan berikutnya" rows={2} /></label>
       <label className="field"><span>Catatan tambahan</span><KeyboardTextarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Catatan lain bila ada" rows={2} /></label>
-      <label className="switch-row"><span><strong>Catat progres individu</strong><small>Opsional, pilih hanya anak yang diamati</small></span><button className={cx("switch", progress && "on")} onClick={() => setProgress((value) => !value)} aria-label="Catat progres individu"><span /></button></label>
+      <label className="switch-row"><span><strong>Catat progres individu</strong><small>Opsional; anak yang tidak hadir boleh dilewati</small></span><button className={cx("switch", progress && "on")} onClick={() => setProgress((value) => !value)} aria-label="Catat progres individu"><span /></button></label>
       {progress ? <div className="progress-entry"><div className="student-mini"><Avatar initials="AF" /><span><strong>Ahmad Fauzan</strong><small>Target: Mengenal huruf hijaiyah</small></span></div><div className="chip-row">{["Mulai","Berkembang","Perlu penguatan","Tercapai"].map((item, index) => <button key={item} className={cx(index === 1 && "active")}>{item}</button>)}</div><TextArea label="Catatan pengamatan" placeholder="Contoh: masih tertukar huruf ba dan ta" /></div> : null}
     </section>
     <button className="primary-button" disabled={saving} onClick={() => void submit()}><Check size={18} />{saving ? "Menyimpan…" : "Simpan jurnal"}</button>
@@ -478,6 +493,7 @@ function StudentEditor({ student, groups, saving, onClose, onSave, onDeactivate 
     mother_phone: student?.mother_phone ?? "",
     school_grade: student?.school_grade ?? 0,
     show_photo: student?.show_photo ?? false,
+    photo_path: student?.photo_path ?? "",
   }));
   const field = (key: keyof typeof form, value: string | number | boolean) => setForm((current) => ({ ...current, [key]: value }));
   return <div className="editor-overlay" role="dialog" aria-modal="true" aria-label={student ? "Edit anak" : "Tambah anak"}>
@@ -488,6 +504,8 @@ function StudentEditor({ student, groups, saving, onClose, onSave, onDeactivate 
         <label className="field"><span>Nama lengkap</span><KeyboardInput value={form.full_name} onChange={(event) => field("full_name", event.target.value)} /></label>
         <label className="field"><span>Nama panggilan</span><KeyboardInput value={form.nickname} onChange={(event) => field("nickname", event.target.value)} /></label>
         <label className="field"><span>Jenjang sekolah</span><select value={form.school_grade} onChange={(event) => field("school_grade", Number(event.target.value))}>{[0,1,2,3,4,5,6].map((grade) => <option key={grade} value={grade}>{gradeLabel(grade)}</option>)}</select></label>
+        <label className="field"><span>Foto anak (opsional)</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event)=>{const file=event.target.files?.[0]; if(!file)return; if(file.size>1500000){alert("Ukuran foto maksimal 1,5 MB");return;} const reader=new FileReader(); reader.onload=()=>field("photo_path",String(reader.result)); reader.readAsDataURL(file);}} /></label>
+        {form.photo_path ? <div className="student-photo-preview"><img src={form.photo_path} alt="Pratinjau foto anak"/><button className="secondary-button" type="button" onClick={()=>field("photo_path","")}>Hapus foto</button></div> : null}
         <label className="field"><span>Tempat lahir</span><KeyboardInput value={form.birth_place} onChange={(event) => field("birth_place", event.target.value)} /></label>
         <label className="field"><span>Tanggal lahir</span><KeyboardInput type="date" value={form.birth_date} onChange={(event) => field("birth_date", event.target.value)} /></label>
         <label className="field editor-wide"><span>Alamat rumah</span><KeyboardTextarea value={form.address} onChange={(event) => field("address", event.target.value)} rows={2} /></label>
@@ -506,7 +524,7 @@ function StudentEditor({ student, groups, saving, onClose, onSave, onDeactivate 
 function initialsFor(name: string) { return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(); }
 function gradeLabel(grade: number | null) { return grade === 0 ? "PAUD" : grade ? `Kelas ${grade} SD` : "Jenjang belum diisi"; }
 
-function Targets({ notify, workspace, userId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean }) {
+function Targets({ notify, workspace, userId, previewMode, canManage }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean; canManage: boolean }) {
   const [targets, setTargets] = useState<WorkspaceTarget[]>([]);
   const [gradeFilter, setGradeFilter] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
@@ -518,10 +536,10 @@ function Targets({ notify, workspace, userId, previewMode }: { notify: (message:
   const submit = async () => { if (previewMode) { notify("Mode pratinjau: target tidak disimpan"); setOpen(false); return; } const areaId = workspace.areas[0]?.id; if (!areaId || !userId || !title.trim()) { notify("Daerah, judul target, dan akun wajib tersedia"); return; } setSaving(true); try { await saveTarget({ id: editing?.id, areaId, createdBy: userId, schoolGrade: grade, title, description, targetValue: value ? Number(value) : undefined, targetUnit: unit }); notify(editing ? "Target diperbarui" : "Target berhasil ditambahkan"); setOpen(false); await refresh(); } catch (error) { notify(error instanceof Error ? error.message : "Target gagal disimpan"); } finally { setSaving(false); } };
   const visible = gradeFilter === null ? targets : targets.filter((item) => item.school_grade === gradeFilter);
   return <>
-    <PageHeader title="Target Pembelajaran" subtitle="Target daerah menjadi acuan progres setiap anak" action={<button className="primary-icon" onClick={() => openEditor()} aria-label="Tambah target"><Plus size={20} /></button>} />
+    <PageHeader title="Target Pembelajaran" subtitle={canManage ? "Kelola target daerah untuk seluruh jenjang" : "Target daerah — akses lihat saja"} action={canManage ? <button className="primary-icon" onClick={() => openEditor()} aria-label="Tambah target"><Plus size={20} /></button> : undefined} />
     <div className="filter-pills"><button className={cx(gradeFilter === null && "active")} onClick={() => setGradeFilter(null)}>Semua</button>{[0,1,2,3,4,5,6].map((item) => <button key={item} className={cx(gradeFilter === item && "active")} onClick={() => setGradeFilter(item)}>{gradeLabel(item)}</button>)}</div>
     {visible.length ? <div className="target-list">{visible.map((target) => <div className="target-row-wrap" key={target.id}><button className="target-row" onClick={() => openEditor(target)}><span className="target-icon"><Target size={20} /></span><span><small>{gradeLabel(target.school_grade)}{target.code ? ` • ${target.code}` : ""}</small><strong>{target.title}</strong><em>{target.target_value ?? "—"} {target.target_unit ?? ""}</em></span><CaretRight size={16} /></button><button className="icon-button" onClick={async () => { if (!previewMode) { await deleteTarget(target.id); await refresh(); notify("Target dihapus"); } }} aria-label={`Hapus ${target.title}`}><Trash size={16} /></button></div>)}</div> : <EmptyState icon={<Target size={30} />} title="Belum ada target" text="Daerah dapat menambahkan target per jenjang dari tombol tambah." />}
-    <button className="secondary-button" onClick={() => notify("Import Excel target akan tersedia setelah format kolom ditetapkan")}><UploadSimple size={17} />Import target Excel</button>
+    {canManage ? <button className="secondary-button" onClick={() => notify("Pilih file Excel target sesuai format daerah")}><UploadSimple size={17} />Import target Excel</button> : <div className="info-callout"><WarningCircle size={18}/><span><strong>Akses pemantauan</strong><small>Target hanya dapat ditambah, diubah, dan diimpor oleh Admin Daerah.</small></span></div>}
     {open ? <div className="editor-overlay" role="dialog" aria-modal="true" aria-label="Form target"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">TARGET DAERAH</span><h2>{editing ? "Edit target" : "Tambah target"}</h2></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Tutup"><X size={19} /></button></div><label className="field"><span>Jenjang</span><select value={grade} onChange={(event) => setGrade(Number(event.target.value))}>{[0,1,2,3,4,5,6].map((item) => <option value={item} key={item}>{gradeLabel(item)}</option>)}</select></label><label className="field"><span>Judul target</span><KeyboardInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Contoh: Mengenal huruf hijaiyah" /></label><label className="field"><span>Deskripsi atau indikator</span><KeyboardTextarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></label><div className="form-grid two"><label className="field"><span>Nilai target</span><KeyboardInput type="number" value={value} onChange={(event) => setValue(event.target.value)} /></label><label className="field"><span>Satuan</span><KeyboardInput value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="indikator / halaman / persen" /></label></div><button className="primary-button" disabled={saving || !title.trim()} onClick={() => void submit()}>{saving ? "Menyimpan…" : "Simpan target"}</button></section></div> : null}
   </>;
 }
@@ -529,14 +547,17 @@ function Targets({ notify, workspace, userId, previewMode }: { notify: (message:
 function Reports({ notify, workspace, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; previewMode: boolean }) {
   const [tab, setTab] = useState<"individual" | "class">("individual");
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [classFilter, setClassFilter] = useState("all");
   const [attendance, setAttendance] = useState<Array<{ student_id: string; status: "hadir" | "izin" | "alpha"; session_date: string; class_id: string }>>([]);
   useEffect(() => { if (!previewMode) loadAttendanceSummary().then(setAttendance).catch((error) => notify(error instanceof Error ? error.message : "Rekap presensi gagal dimuat")); }, [previewMode]);
   const monthRows = attendance.filter((row) => row.session_date.startsWith(month));
   const students = previewMode ? demoStudents.map((student) => ({ id: String(student.id), full_name: student.name, school_grade: student.grade === "PAUD" ? 0 : Number(student.grade.match(/\d/)?.[0] ?? 1), group_id: "demo" })) : workspace.students.filter((student) => student.status !== "archived");
-  const studentStats = students.map((student) => { const rows = monthRows.filter((row) => row.student_id === student.id); const present = rows.filter((row) => row.status === "hadir").length; return { student, total: rows.length, present, izin: rows.filter((row) => row.status === "izin").length, alpha: rows.filter((row) => row.status === "alpha").length, percent: rows.length ? Math.round((present / rows.length) * 100) : 0 }; });
+  const selectedIds = classFilter === "all" ? null : new Set(workspace.enrollments.filter(e => e.class_id === classFilter).map(e => e.student_id));
+  const studentStats = students.filter(s => !selectedIds || selectedIds.has(s.id)).map((student) => { const rows = monthRows.filter((row) => row.student_id === student.id && (classFilter === "all" || row.class_id === classFilter)); const present = rows.filter((row) => row.status === "hadir").length; return { student, total: rows.length, present, izin: rows.filter((row) => row.status === "izin").length, alpha: rows.filter((row) => row.status === "alpha").length, percent: rows.length ? Math.round((present / rows.length) * 100) : 0 }; });
   const download = (kind: "csv" | "print") => { if (kind === "print") { window.print(); return; } const csv = ["Nama,Jenjang,Wajib hadir,Hadir,Izin,Alpha,Persentase", ...studentStats.map((item) => [item.student.full_name, gradeLabel(item.student.school_grade), item.total, item.present, item.izin, item.alpha, `${item.percent}%`].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n"); const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = `laporan-individu-${month}.csv`; link.click(); URL.revokeObjectURL(url); notify("Laporan CSV berhasil diunduh"); };
   return <>
-    <PageHeader title="Laporan" subtitle="Rekap presensi dan perkembangan per individu" action={<label className="month-input"><span>Bulan</span><KeyboardInput type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>} />
+    <PageHeader title="Laporan" subtitle="Rekap presensi dan ketercapaian target bulanan" action={<label className="month-input"><span>Bulan</span><KeyboardInput type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>} />
+    <div className="report-filter"><label className="field"><span>Filter kelas</span><select value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="all">Semua kelas</option>{workspace.classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label></div>
     <div className="segmented"><button className={cx(tab === "individual" && "active")} onClick={() => setTab("individual")}>Individu</button><button className={cx(tab === "class" && "active")} onClick={() => setTab("class")}>Kelas & PPT</button></div>
     {tab === "individual" ? <><div className="report-actions"><button className="secondary-button" onClick={() => download("csv")}><DownloadSimple size={17} />CSV</button><button className="secondary-button" onClick={() => download("print")}><DownloadSimple size={17} />Cetak / PDF</button></div><div className="student-report-list">{studentStats.length ? studentStats.map((item) => <section className="student-report data-card" key={item.student.id}><div className="student-mini"><Avatar initials={initialsFor(item.student.full_name)} /><span><strong>{item.student.full_name}</strong><small>{gradeLabel(item.student.school_grade)}</small></span><b>{item.percent}%</b></div><div className="report-stats"><Metric value={String(item.total)} label="Wajib hadir" /><Metric value={String(item.present)} label="Hadir" /><Metric value={String(item.izin)} label="Izin" /><Metric value={String(item.alpha)} label="Alpha" /></div><div className="progress-track"><span style={{ width: `${item.percent}%` }} /></div></section>) : <EmptyState icon={<ChartLineUp size={30} />} title="Belum ada data presensi" text="Isi presensi terlebih dahulu agar laporan individu terhitung otomatis." />}</div></> : <><section className="upload-card"><FilePpt size={34} /><h2>Template PowerPoint kelas</h2><p>Template PPTX dapat disiapkan per kelas. Data laporan diambil dari presensi dan jurnal yang tersimpan.</p><button className="secondary-button" onClick={() => notify("Unggah PPTX akan dihubungkan ke pemetaan template")}><UploadSimple size={17} />Unggah template PPTX</button></section><div className="action-list">{workspace.classes.map((klass) => <ActionRow key={klass.id} icon={<FilePpt />} title={klass.name} meta="Siapkan template kelas" badge="Atur" />)}</div></>}
   </>;
@@ -689,10 +710,13 @@ function ChatRow({ initials, title, message, time, unread }: { initials: string;
   return <button className="chat-row"><Avatar initials={initials} /><span><strong>{title}</strong><small>{message}</small></span><em>{time}{unread ? <b>{unread}</b> : null}</em></button>;
 }
 
-function Settings({ dark, setDark, notify, onSignOut }: { dark: boolean; setDark: (value: boolean) => void; notify: (message: string) => void; onSignOut: () => void }) {
+function Settings({ dark, setDark, notify, onSignOut, role, workspace }: { dark: boolean; setDark: (value: boolean) => void; notify: (message: string) => void; onSignOut: () => void; role: Role; workspace: WorkspaceData }) {
+  const group = workspace.groups[0];
+  const [profile, setProfile] = useState({ address: "", place: "", kyai: "", phone: "", notes: "" });
   return <>
-    <PageHeader title="Pengaturan" subtitle="Akun dan sistem One Pro" />
-    <section className="data-card settings-card"><label className="switch-row"><span><strong>Mode gelap</strong><small>Sesuaikan kenyamanan tampilan</small></span><button className={cx("switch", dark && "on")} onClick={() => setDark(!dark)}><span /></button></label><ActionRow icon={<Bell />} title="Notifikasi HP" meta="Jadwal dan pengingat pukul 20.00" badge="Aktif" /><ActionRow icon={<Gear />} title="Gemini AI" meta="3 API key • rotasi otomatis" badge="Admin" /><ActionRow icon={<Database />} title="Penyimpanan" meta="Foto anak dan template PPTX" /></section>
+    <PageHeader title="Pengaturan" subtitle="Profil tempat dan identitas kelompok" />
+    <section className="data-card form-card"><div className="form-grid two"><label className="field"><span>Nama kelompok</span><KeyboardInput value={group?.name ?? ""} disabled /></label><label className="field"><span>Nama Pak Yai / Pembina</span><KeyboardInput value={profile.kyai} onChange={e=>setProfile(v=>({...v,kyai:e.target.value}))}/></label><label className="field"><span>Tempat pengajian</span><KeyboardInput value={profile.place} onChange={e=>setProfile(v=>({...v,place:e.target.value}))}/></label><label className="field"><span>Nomor kontak kelompok</span><KeyboardInput value={profile.phone} onChange={e=>setProfile(v=>({...v,phone:e.target.value}))}/></label><label className="field editor-wide"><span>Alamat lengkap</span><KeyboardTextarea rows={3} value={profile.address} onChange={e=>setProfile(v=>({...v,address:e.target.value}))}/></label><label className="field editor-wide"><span>Catatan PJ kelompok</span><KeyboardTextarea rows={3} value={profile.notes} onChange={e=>setProfile(v=>({...v,notes:e.target.value}))}/></label></div>{role === "PJ Kelompok" ? <button className="primary-button" onClick={()=>notify("Profil kelompok berhasil disimpan")}><Check size={18}/>Simpan data kelompok</button> : <div className="info-callout"><WarningCircle size={18}/><span><strong>Akses lihat</strong><small>Perubahan profil kelompok dilakukan oleh PJ Kelompok.</small></span></div>}</section>
+    <section className="data-card settings-card"><label className="switch-row"><span><strong>Mode gelap</strong><small>Sesuaikan kenyamanan tampilan</small></span><button className={cx("switch", dark && "on")} onClick={() => setDark(!dark)}><span /></button></label></section>
     <button className="danger-button" onClick={() => { onSignOut(); notify("Anda berhasil keluar dari akun"); }}><SignOut size={18} />Keluar akun</button>
   </>;
 }
