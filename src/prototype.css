@@ -41,6 +41,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .auth-card { padding: 22px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }.auth-card h1 { margin: 5px 0 7px; font-size: 27px; }.auth-card > p { margin: 0 0 20px; color: var(--muted); font-size: 10px; line-height: 1.55; }
 .auth-field { display: grid; gap: 6px; margin: 12px 0; }.auth-field span { color: var(--muted); font-size: 9px; font-weight: 700; }.auth-field input { min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; color: var(--text); background: var(--surface-2); outline: none; }.auth-field input:focus { border-color: var(--purple-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--purple-2) 14%, transparent); }
 .auth-message, .auth-loading { margin-top: 11px; padding: 10px 11px; border-radius: 11px; color: var(--warning); background: var(--warning-bg); font-size: 9px; line-height: 1.45; }.auth-switch { width: 100%; margin-top: 14px; border: 0; color: var(--blue); background: transparent; font-size: 9px; font-weight: 800; }.auth-card button:disabled { opacity: .6; cursor: wait; }
+.auth-help { margin-top: 14px; color: var(--muted); font-size: 9px; line-height: 1.45; text-align: center; }
 
 .focus-panel, .data-card, .progress-hero, .upload-card { background: var(--surface); border: 1px solid var(--line); border-radius: 19px; overflow: hidden; }
 .focus-head { color: white; padding: 17px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #571064, #172a67 68%, #075797); }
