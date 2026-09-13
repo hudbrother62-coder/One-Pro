@@ -60,13 +60,28 @@ Deno.serve(async (req: Request) => {
     return json(req, { error: "Username tidak valid atau password kurang dari 8 karakter" }, 400);
   }
 
+  const claimedAt = new Date().toISOString();
+  const { data: claimed, error: claimError } = await admin.from("invitations")
+    .update({ accepted_at: claimedAt })
+    .eq("id", invitation.id)
+    .is("accepted_at", null)
+    .gt("expires_at", claimedAt)
+    .select("id")
+    .maybeSingle();
+  if (claimError || !claimed) {
+    return json(req, { error: "Undangan sudah dipakai atau kedaluwarsa" }, 409);
+  }
+
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email: `${username}@accounts.onepro.local`,
     password,
     email_confirm: true,
     user_metadata: { full_name: invitation.full_name, username },
   });
-  if (createError || !created.user) return json(req, { error: createError?.message ?? "Akun gagal dibuat" }, 400);
+  if (createError || !created.user) {
+    await admin.from("invitations").update({ accepted_at: null }).eq("id", invitation.id).eq("accepted_at", claimedAt);
+    return json(req, { error: createError?.message ?? "Akun gagal dibuat" }, 400);
+  }
 
   const { error: membershipError } = await admin.from("memberships").insert({
     user_id: created.user.id,
@@ -77,9 +92,9 @@ Deno.serve(async (req: Request) => {
   });
   if (membershipError) {
     await admin.auth.admin.deleteUser(created.user.id);
+    await admin.from("invitations").update({ accepted_at: null }).eq("id", invitation.id).eq("accepted_at", claimedAt);
     return json(req, { error: "Akses anggota gagal dibuat" }, 500);
   }
 
-  await admin.from("invitations").update({ accepted_at: new Date().toISOString() }).eq("id", invitation.id);
   return json(req, { accepted: true });
 });
