@@ -132,6 +132,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .device-menu-bar,
 .status-bar,
 .home-indicator,
+.home-indicator-svg,
+.android-navigation-bar,
 .keyboard-dock,
 .mobile-cursor { display: none !important; }
 .mobile-app-viewport { inset: 0 !important; bottom: 0 !important; }
