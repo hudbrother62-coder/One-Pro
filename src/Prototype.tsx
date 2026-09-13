@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "@fontsource-variable/plus-jakarta-sans";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { emptyWorkspace, loadAccounts, loadWorkspace, manageAccount, saveAttendance, saveDailyJournal, saveStudent, setStudentStatus, type AccountRole, type LoginActivity, type WorkspaceAccount, type WorkspaceData, type WorkspaceStudent } from "./lib/data";
+import { deleteSchedule, deleteTarget, emptyWorkspace, loadAccounts, loadAttendanceSummary, loadTargets, loadWorkspace, manageAccount, saveAttendance, saveClass, saveDailyJournal, saveSchedule, saveStudent, saveTarget, setStudentStatus, type AccountRole, type LoginActivity, type WorkspaceAccount, type WorkspaceData, type WorkspaceStudent, type WorkspaceTarget } from "./lib/data";
 import {
   Bell,
   CalendarBlank,
@@ -60,6 +60,7 @@ const desktopNavItems = [
 ];
 
 const superAdminItem = { id: "admin" as Screen, label: "Super Admin", icon: UserCircle, hint: "Akun, akses, dan login" };
+const maintenanceMenuItems = [superAdminItem, menuItems.find((item) => item.id === "settings")!];
 
 const demoStudents = [
   { id: 1, name: "Ahmad Fauzan", grade: "Kelas 1 SD", initials: "AF", active: true },
@@ -160,8 +161,8 @@ export default function Prototype() {
     return <div className={cx("one-pro-shell", dark && "is-dark")}><div className="full-loading" role="status">Memeriksa akses akun…</div></div>;
   }
 
-  const allowedNavigation = role === "Super Admin" ? [...desktopNavItems, superAdminItem] : desktopNavItems;
-  const allowedMenuItems = role === "Super Admin" ? [...menuItems, superAdminItem] : menuItems;
+  const allowedNavigation = role === "Super Admin" ? [{ ...navItems[0] }, superAdminItem, menuItems.find((item) => item.id === "settings")!] : desktopNavItems;
+  const allowedMenuItems = role === "Super Admin" ? maintenanceMenuItems : menuItems;
 
   return (
     <div className={cx("one-pro-shell", dark && "is-dark")}>
@@ -197,13 +198,13 @@ export default function Prototype() {
       <MobileScroll className="app-screen">
         <main className={cx("screen-content", `screen-${screen}`)} data-testid="one-pro-app">
           {dataState === "loading" ? <div className="data-sync" role="status">Menyinkronkan data…</div> : null}
-          {screen === "home" ? <Home role={role} setRole={setRole} go={go} previewMode={previewMode} workspace={workspace} /> : null}
-          {screen === "agenda" ? <Agenda notify={notify} go={go} /> : null}
+          {screen === "home" ? role === "Super Admin" ? <SuperAdminHome go={go} /> : <Home role={role} setRole={setRole} go={go} previewMode={previewMode} workspace={workspace} /> : null}
+          {screen === "agenda" ? <Agenda notify={notify} go={go} workspace={workspace} refresh={refreshWorkspace} userId={authUser?.id} previewMode={previewMode} /> : null}
           {screen === "attendance" ? <AttendanceScreen notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
           {screen === "journal" ? <Journal notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
           {screen === "students" ? <Students notify={notify} workspace={workspace} refresh={refreshWorkspace} previewMode={previewMode} /> : null}
-          {screen === "targets" ? <Targets notify={notify} /> : null}
-          {screen === "reports" ? <Reports notify={notify} /> : null}
+          {screen === "targets" ? <Targets notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
+          {screen === "reports" ? <Reports notify={notify} workspace={workspace} previewMode={previewMode} /> : null}
           {screen === "team" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} /> : null}
           {screen === "admin" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} superView /> : null}
           {screen === "chat" ? <Chat notify={notify} /> : null}
@@ -212,7 +213,7 @@ export default function Prototype() {
       </MobileScroll>
 
       <nav className="bottom-nav" aria-label="Navigasi utama">
-        {navItems.map((item) => {
+        {(role === "Super Admin" ? [navItems[0]] : navItems).map((item) => {
           const Icon = item.icon;
           return <button key={item.id} className={cx(screen === item.id && "active")} onClick={() => go(item.id)}><Icon size={21} weight={screen === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
         })}
@@ -235,6 +236,17 @@ export default function Prototype() {
 
 function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return <div className="page-heading"><div><h1>{title}</h1>{subtitle ? <p>{subtitle}</p> : null}</div>{action}</div>;
+}
+
+function SuperAdminHome({ go }: { go: (screen: Screen) => void }) {
+  return <>
+    <div className="context-row"><div><span className="eyebrow">PEMELIHARAAN SISTEM</span><h1>One Pro Jurnal Digital</h1></div><span className="role-badge">Super Admin</span></div>
+    <section className="focus-panel maintenance-hero"><div className="focus-head"><div><span>STATUS PLATFORM</span><strong>Berjalan normal</strong><small>Data operasional tetap dikelola oleh Daerah, Desa, dan Kelompok.</small></div><CheckCircle size={27} weight="fill" /></div></section>
+    <section className="metric-strip"><Metric value="Aktif" label="Supabase" /><Metric value="Ready" label="Deployment" /><Metric value="0" label="Gangguan" /></section>
+    <SectionTitle title="Pemeliharaan utama" />
+    <div className="action-list"><ActionRow icon={<UserCircle />} title="Kelola akun dan akses" meta="Buat, ubah, nonaktifkan, atau hapus user" onClick={() => go("admin")} /><ActionRow icon={<ChartLineUp />} title="Riwayat aktivitas login" meta="Pantau login dan perubahan akun" onClick={() => go("admin")} /><ActionRow icon={<Gear />} title="Pengaturan platform" meta="Tema, koneksi, dan konfigurasi web" onClick={() => go("settings")} /></div>
+    <div className="info-callout"><WarningCircle size={19} /><span><strong>Data operasional dipisahkan</strong><small>Super Admin tidak mengisi presensi, jurnal, target, atau laporan. Akses data tersebut diberikan melalui akun tingkat wilayah.</small></span></div>
+  </>;
 }
 
 function Home({ role, setRole, go, previewMode, workspace }: { role: Role; setRole: (role: Role) => void; go: (screen: Screen) => void; previewMode: boolean; workspace: WorkspaceData }) {
@@ -320,18 +332,37 @@ function Village({ rank, name, attendance, progress, status, warning }: { rank: 
   return <button className="village-row"><span className="rank">{rank}</span><span className="village-main"><strong>{name}</strong><small>Kehadiran {attendance} · Target {progress}</small></span><span className={cx("status", warning ? "warning" : "success")}>{status}</span><CaretRight size={16} /></button>;
 }
 
-function Agenda({ notify, go }: { notify: (message: string) => void; go: (screen: Screen) => void }) {
-  const [activeDay, setActiveDay] = useState(14);
+function Agenda({ notify, go, workspace, refresh, userId, previewMode }: { notify: (message: string) => void; go: (screen: Screen) => void; workspace: WorkspaceData; refresh: () => Promise<void>; userId?: string; previewMode: boolean }) {
+  const today = new Date();
+  const [activeDate, setActiveDate] = useState(today.toISOString().slice(0, 10));
+  const [open, setOpen] = useState<"schedule" | "class" | null>(null);
+  const [classId, setClassId] = useState(workspace.classes[0]?.id ?? "");
+  const [groupId, setGroupId] = useState(workspace.groups[0]?.id ?? "");
+  const [className, setClassName] = useState("");
+  const [startTime, setStartTime] = useState("16:00");
+  const [endTime, setEndTime] = useState("17:30");
+  const [materialPlan, setMaterialPlan] = useState("");
+  const [saving, setSaving] = useState(false);
+  const days = Array.from({ length: 7 }, (_, index) => { const date = new Date(today); date.setDate(today.getDate() - today.getDay() + index); return date; });
+  const activeWeekday = new Date(`${activeDate}T12:00:00`).getDay();
+  const schedules = previewMode ? [] : workspace.schedules.filter((item) => item.weekday === activeWeekday);
+  const submitClass = async () => {
+    if (previewMode) { notify("Mode pratinjau: kelas tidak disimpan"); setOpen(null); return; }
+    if (!groupId || !className.trim()) { notify("Nama kelas dan kelompok wajib diisi"); return; }
+    setSaving(true); try { await saveClass({ groupId, name: className }); await refresh(); notify("Kelas berhasil dibuat"); setClassName(""); setOpen(null); } catch (error) { notify(error instanceof Error ? error.message : "Kelas gagal dibuat"); } finally { setSaving(false); }
+  };
+  const submitSchedule = async () => {
+    if (previewMode) { notify("Mode pratinjau: jadwal tidak disimpan"); setOpen(null); return; }
+    if (!classId || !userId) { notify("Pilih kelas terlebih dahulu"); return; }
+    setSaving(true); try { await saveSchedule({ classId, teacherId: userId, weekday: activeWeekday, startTime, endTime, materialPlan }); await refresh(); notify("Jadwal berhasil disimpan"); setOpen(null); } catch (error) { notify(error instanceof Error ? error.message : "Jadwal gagal disimpan"); } finally { setSaving(false); }
+  };
   return <>
-    <PageHeader title="Jadwal Mengaji" subtitle="Semua kelas di Mangliawan Utara" action={<button className="primary-icon" onClick={() => notify("Form jadwal baru dibuka")}><Plus size={20} /></button>} />
-    <div className="day-picker">{[13,14,15,16,17,18,19].map((day, index) => <button key={day} className={cx(activeDay === day && "active")} onClick={() => setActiveDay(day)}><small>{["Min","Sen","Sel","Rab","Kam","Jum","Sab"][index]}</small><strong>{day}</strong></button>)}</div>
-    <SectionTitle title={activeDay === 14 ? "3 kelas hari ini" : "Belum ada jadwal"} />
-    {activeDay === 14 ? <div className="schedule-list card-list">
-      <Schedule time="07.00" end="08.00" title="Tahsin Al-Qur'an" teacher="Ust. Ahmad Fauzi" status="Selesai" tone="success" />
-      <Schedule time="16.00" end="17.30" title="Kelas Al-Fatihah" teacher="Ustaz Ahmad" status="Menunggu jurnal" tone="warning" action={() => go("journal")} />
-      <Schedule time="18.30" end="19.30" title="Fiqih Dasar" teacher="Ustazah Siti" status="Akan dimulai" tone="neutral" />
-    </div> : <EmptyState icon={<CalendarBlank size={30} />} title="Belum ada jadwal" text="Tambahkan agenda atau pilih tanggal lain." />}
-    <button className="secondary-button" onClick={() => notify("Jadwal rutin berhasil dibuat untuk 4 minggu")}>Buat jadwal rutin</button>
+    <PageHeader title="Jadwal Mengaji" subtitle="Atur kelas, jam, dan materi per hari" action={<div className="header-actions"><button className="secondary-icon" onClick={() => setOpen("class")} aria-label="Tambah kelas"><Student size={19} /></button><button className="primary-icon" onClick={() => { setClassId(workspace.classes[0]?.id ?? ""); setOpen("schedule"); }} aria-label="Tambah jadwal"><Plus size={20} /></button></div>} />
+    <div className="day-picker">{days.map((date) => { const key = date.toISOString().slice(0, 10); return <button key={key} className={cx(activeDate === key && "active")} onClick={() => setActiveDate(key)}><small>{new Intl.DateTimeFormat("id-ID", { weekday: "short" }).format(date)}</small><strong>{date.getDate()}</strong></button>; })}</div>
+    <SectionTitle title={`${schedules.length} jadwal pada hari ini`} />
+    {schedules.length ? <div className="schedule-list card-list">{schedules.map((item) => { const klass = workspace.classes.find((candidate) => candidate.id === item.class_id); return <div className="schedule-row-wrap" key={item.id}><Schedule time={item.start_time.slice(0, 5)} end={item.end_time.slice(0, 5)} title={klass?.name ?? "Kelas"} teacher={item.material_plan || "Materi belum diisi"} status="Terjadwal" tone="neutral" action={() => go("journal")} /><button className="icon-button" onClick={async () => { if (!previewMode) { await deleteSchedule(item.id); await refresh(); notify("Jadwal dinonaktifkan"); } }} aria-label="Nonaktifkan jadwal"><Trash size={16} /></button></div>; })}</div> : <EmptyState icon={<CalendarBlank size={30} />} title="Belum ada jadwal" text="Tambahkan jadwal untuk hari ini agar guru mendapat pengingat." />}
+    <button className="secondary-button" onClick={() => notify("Pilih tiap hari untuk membuat jadwal rutin")}><CalendarBlank size={17} />Buat jadwal rutin</button>
+    {open ? <div className="editor-overlay" role="dialog" aria-modal="true" aria-label={open === "class" ? "Tambah kelas" : "Tambah jadwal"}><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">{open === "class" ? "KELAS BARU" : "JADWAL MENGAJI"}</span><h2>{open === "class" ? "Tambah kelas" : "Tambah jadwal"}</h2></div><button className="icon-button" onClick={() => setOpen(null)} aria-label="Tutup"><X size={19} /></button></div>{open === "class" ? <><label className="field"><span>Kelompok</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)}>{workspace.groups.map((group) => <option value={group.id} key={group.id}>{group.name}</option>)}</select></label><label className="field"><span>Nama kelas</span><KeyboardInput value={className} onChange={(event) => setClassName(event.target.value)} placeholder="Contoh: Kelas Al-Fatihah" /></label><button className="primary-button" disabled={saving} onClick={() => void submitClass()}>{saving ? "Menyimpan…" : "Simpan kelas"}</button></> : <><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{workspace.classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><div className="form-grid two"><label className="field"><span>Mulai</span><KeyboardInput type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="field"><span>Selesai</span><KeyboardInput type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div><label className="field"><span>Materi rencana</span><KeyboardTextarea value={materialPlan} onChange={(event) => setMaterialPlan(event.target.value)} rows={3} placeholder="Materi yang akan diajarkan" /></label><button className="primary-button" disabled={saving || !classId} onClick={() => void submitSchedule()}>{saving ? "Menyimpan…" : "Simpan jadwal"}</button></>}</section></div> : null}
   </>;
 }
 
@@ -475,36 +506,39 @@ function StudentEditor({ student, groups, saving, onClose, onSave, onDeactivate 
 function initialsFor(name: string) { return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(); }
 function gradeLabel(grade: number | null) { return grade === 0 ? "PAUD" : grade ? `Kelas ${grade} SD` : "Jenjang belum diisi"; }
 
-function Targets({ notify }: { notify: (message: string) => void }) {
+function Targets({ notify, workspace, userId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean }) {
+  const [targets, setTargets] = useState<WorkspaceTarget[]>([]);
+  const [gradeFilter, setGradeFilter] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<WorkspaceTarget | null>(null);
+  const [grade, setGrade] = useState(0); const [title, setTitle] = useState(""); const [description, setDescription] = useState(""); const [value, setValue] = useState(""); const [unit, setUnit] = useState(""); const [saving, setSaving] = useState(false);
+  const refresh = async () => { if (previewMode) { setTargets([{ id: "p1", version_id: "v", school_grade: 0, code: "PAUD-01", title: "Doa harian dasar", description: "", target_value: 3, target_unit: "indikator", sort_order: 1 }, { id: "p2", version_id: "v", school_grade: 1, code: "SD1-01", title: "Mengenal huruf hijaiyah", description: "", target_value: 5, target_unit: "indikator", sort_order: 2 }]); return; } try { setTargets(await loadTargets()); } catch (error) { notify(error instanceof Error ? error.message : "Target gagal dimuat"); } };
+  useEffect(() => { void refresh(); }, [previewMode]);
+  const openEditor = (target?: WorkspaceTarget) => { setEditing(target ?? null); setGrade(target?.school_grade ?? 0); setTitle(target?.title ?? ""); setDescription(target?.description ?? ""); setValue(target?.target_value ? String(target.target_value) : ""); setUnit(target?.target_unit ?? "indikator"); setOpen(true); };
+  const submit = async () => { if (previewMode) { notify("Mode pratinjau: target tidak disimpan"); setOpen(false); return; } const areaId = workspace.areas[0]?.id; if (!areaId || !userId || !title.trim()) { notify("Daerah, judul target, dan akun wajib tersedia"); return; } setSaving(true); try { await saveTarget({ id: editing?.id, areaId, createdBy: userId, schoolGrade: grade, title, description, targetValue: value ? Number(value) : undefined, targetUnit: unit }); notify(editing ? "Target diperbarui" : "Target berhasil ditambahkan"); setOpen(false); await refresh(); } catch (error) { notify(error instanceof Error ? error.message : "Target gagal disimpan"); } finally { setSaving(false); } };
+  const visible = gradeFilter === null ? targets : targets.filter((item) => item.school_grade === gradeFilter);
   return <>
-    <PageHeader title="Target Pembelajaran" subtitle="Dikelola Daerah Malang Timur" action={<button className="primary-icon" onClick={() => notify("Form target baru dibuka")}><Plus size={20} /></button>} />
-    <div className="filter-pills"><button className="active">Semua</button><button>PAUD</button><button>Kelas 1</button><button>Kelas 2–6</button></div>
-    <div className="target-list">
-      <TargetRow grade="PAUD" title="Doa harian dasar" count="3 indikator" progress="81%" />
-      <TargetRow grade="Kelas 1 SD" title="Mengenal huruf hijaiyah" count="5 indikator" progress="76%" />
-      <TargetRow grade="Kelas 2 SD" title="Kelancaran membaca Iqra" count="4 indikator" progress="68%" />
-      <TargetRow grade="Kelas 3–6 SD" title="Tahsin dan tajwid dasar" count="8 indikator" progress="72%" />
-    </div>
-    <button className="secondary-button" onClick={() => notify("Template target Excel siap diunduh")}><UploadSimple size={17} />Import target Excel</button>
+    <PageHeader title="Target Pembelajaran" subtitle="Target daerah menjadi acuan progres setiap anak" action={<button className="primary-icon" onClick={() => openEditor()} aria-label="Tambah target"><Plus size={20} /></button>} />
+    <div className="filter-pills"><button className={cx(gradeFilter === null && "active")} onClick={() => setGradeFilter(null)}>Semua</button>{[0,1,2,3,4,5,6].map((item) => <button key={item} className={cx(gradeFilter === item && "active")} onClick={() => setGradeFilter(item)}>{gradeLabel(item)}</button>)}</div>
+    {visible.length ? <div className="target-list">{visible.map((target) => <div className="target-row-wrap" key={target.id}><button className="target-row" onClick={() => openEditor(target)}><span className="target-icon"><Target size={20} /></span><span><small>{gradeLabel(target.school_grade)}{target.code ? ` • ${target.code}` : ""}</small><strong>{target.title}</strong><em>{target.target_value ?? "—"} {target.target_unit ?? ""}</em></span><CaretRight size={16} /></button><button className="icon-button" onClick={async () => { if (!previewMode) { await deleteTarget(target.id); await refresh(); notify("Target dihapus"); } }} aria-label={`Hapus ${target.title}`}><Trash size={16} /></button></div>)}</div> : <EmptyState icon={<Target size={30} />} title="Belum ada target" text="Daerah dapat menambahkan target per jenjang dari tombol tambah." />}
+    <button className="secondary-button" onClick={() => notify("Import Excel target akan tersedia setelah format kolom ditetapkan")}><UploadSimple size={17} />Import target Excel</button>
+    {open ? <div className="editor-overlay" role="dialog" aria-modal="true" aria-label="Form target"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">TARGET DAERAH</span><h2>{editing ? "Edit target" : "Tambah target"}</h2></div><button className="icon-button" onClick={() => setOpen(false)} aria-label="Tutup"><X size={19} /></button></div><label className="field"><span>Jenjang</span><select value={grade} onChange={(event) => setGrade(Number(event.target.value))}>{[0,1,2,3,4,5,6].map((item) => <option value={item} key={item}>{gradeLabel(item)}</option>)}</select></label><label className="field"><span>Judul target</span><KeyboardInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Contoh: Mengenal huruf hijaiyah" /></label><label className="field"><span>Deskripsi atau indikator</span><KeyboardTextarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></label><div className="form-grid two"><label className="field"><span>Nilai target</span><KeyboardInput type="number" value={value} onChange={(event) => setValue(event.target.value)} /></label><label className="field"><span>Satuan</span><KeyboardInput value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="indikator / halaman / persen" /></label></div><button className="primary-button" disabled={saving || !title.trim()} onClick={() => void submit()}>{saving ? "Menyimpan…" : "Simpan target"}</button></section></div> : null}
   </>;
 }
 
-function TargetRow({ grade, title, count, progress }: { grade: string; title: string; count: string; progress: string }) {
-  return <button className="target-row"><span className="target-icon"><Target size={20} /></span><span><small>{grade}</small><strong>{title}</strong><em>{count}</em></span><b>{progress}</b><CaretRight size={16} /></button>;
-}
-
-function Reports({ notify }: { notify: (message: string) => void }) {
+function Reports({ notify, workspace, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; previewMode: boolean }) {
   const [tab, setTab] = useState<"individual" | "class">("individual");
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [attendance, setAttendance] = useState<Array<{ student_id: string; status: "hadir" | "izin" | "alpha"; session_date: string; class_id: string }>>([]);
+  useEffect(() => { if (!previewMode) loadAttendanceSummary().then(setAttendance).catch((error) => notify(error instanceof Error ? error.message : "Rekap presensi gagal dimuat")); }, [previewMode]);
+  const monthRows = attendance.filter((row) => row.session_date.startsWith(month));
+  const students = previewMode ? demoStudents.map((student) => ({ id: String(student.id), full_name: student.name, school_grade: student.grade === "PAUD" ? 0 : Number(student.grade.match(/\d/)?.[0] ?? 1), group_id: "demo" })) : workspace.students.filter((student) => student.status !== "archived");
+  const studentStats = students.map((student) => { const rows = monthRows.filter((row) => row.student_id === student.id); const present = rows.filter((row) => row.status === "hadir").length; return { student, total: rows.length, present, izin: rows.filter((row) => row.status === "izin").length, alpha: rows.filter((row) => row.status === "alpha").length, percent: rows.length ? Math.round((present / rows.length) * 100) : 0 }; });
+  const download = (kind: "csv" | "print") => { if (kind === "print") { window.print(); return; } const csv = ["Nama,Jenjang,Wajib hadir,Hadir,Izin,Alpha,Persentase", ...studentStats.map((item) => [item.student.full_name, gradeLabel(item.student.school_grade), item.total, item.present, item.izin, item.alpha, `${item.percent}%`].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n"); const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = `laporan-individu-${month}.csv`; link.click(); URL.revokeObjectURL(url); notify("Laporan CSV berhasil diunduh"); };
   return <>
-    <PageHeader title="Laporan" subtitle="Perkembangan dan rekap pembelajaran" />
+    <PageHeader title="Laporan" subtitle="Rekap presensi dan perkembangan per individu" action={<label className="month-input"><span>Bulan</span><KeyboardInput type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>} />
     <div className="segmented"><button className={cx(tab === "individual" && "active")} onClick={() => setTab("individual")}>Individu</button><button className={cx(tab === "class" && "active")} onClick={() => setTab("class")}>Kelas & PPT</button></div>
-    {tab === "individual" ? <>
-      <section className="student-report data-card"><div className="student-mini"><Avatar initials="AF" /><span><strong>Ahmad Fauzan</strong><small>Kelas Al-Fatihah • Kelas 1 SD</small></span></div><div className="report-stats"><Metric value="92%" label="Kehadiran" /><Metric value="68%" label="Capaian" /><Metric value="6" label="Catatan" /></div><div className="ai-note"><ChartLineUp size={21} /><span><strong>Analisis terbaru</strong><p>Progres meningkat pada 3 pertemuan terakhir. Perlu penguatan pada huruf yang memiliki bentuk serupa.</p><small>Berdasarkan 8 jurnal • 14 September 2026</small></span></div></section>
-      <button className="primary-button" onClick={() => notify("Laporan individu sedang disiapkan")}><DownloadSimple size={18} />Unduh PDF / Word</button>
-    </> : <>
-      <section className="upload-card"><FilePpt size={34} /><h2>Template PowerPoint kelas</h2><p>Unggah PPTX, periksa pemetaan data, lalu web mengisi laporan dari data yang telah dianalisis.</p><button className="secondary-button" onClick={() => notify("Pilih template PPTX kelas")}><UploadSimple size={17} />Unggah template PPTX</button></section>
-      <div className="action-list"><ActionRow icon={<FilePpt />} title="Kelas Al-Fatihah" meta="Template aktif • diperbarui 10 Sep" badge="Siap" /><ActionRow icon={<WarningCircle />} title="Kelas Fiqih Dasar" meta="Belum memiliki template" badge="Atur" /></div>
-    </>}
+    {tab === "individual" ? <><div className="report-actions"><button className="secondary-button" onClick={() => download("csv")}><DownloadSimple size={17} />CSV</button><button className="secondary-button" onClick={() => download("print")}><DownloadSimple size={17} />Cetak / PDF</button></div><div className="student-report-list">{studentStats.length ? studentStats.map((item) => <section className="student-report data-card" key={item.student.id}><div className="student-mini"><Avatar initials={initialsFor(item.student.full_name)} /><span><strong>{item.student.full_name}</strong><small>{gradeLabel(item.student.school_grade)}</small></span><b>{item.percent}%</b></div><div className="report-stats"><Metric value={String(item.total)} label="Wajib hadir" /><Metric value={String(item.present)} label="Hadir" /><Metric value={String(item.izin)} label="Izin" /><Metric value={String(item.alpha)} label="Alpha" /></div><div className="progress-track"><span style={{ width: `${item.percent}%` }} /></div></section>) : <EmptyState icon={<ChartLineUp size={30} />} title="Belum ada data presensi" text="Isi presensi terlebih dahulu agar laporan individu terhitung otomatis." />}</div></> : <><section className="upload-card"><FilePpt size={34} /><h2>Template PowerPoint kelas</h2><p>Template PPTX dapat disiapkan per kelas. Data laporan diambil dari presensi dan jurnal yang tersimpan.</p><button className="secondary-button" onClick={() => notify("Unggah PPTX akan dihubungkan ke pemetaan template")}><UploadSimple size={17} />Unggah template PPTX</button></section><div className="action-list">{workspace.classes.map((klass) => <ActionRow key={klass.id} icon={<FilePpt />} title={klass.name} meta="Siapkan template kelas" badge="Atur" />)}</div></>}
   </>;
 }
 

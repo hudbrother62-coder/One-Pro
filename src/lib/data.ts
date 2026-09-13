@@ -23,6 +23,7 @@ export type WorkspaceClass = { id: string; group_id: string; name: string; descr
 export type WorkspaceGroup = { id: string; village_id: string; name: string; study_days: number[]; reminder_time: string };
 export type WorkspaceSchedule = { id: string; class_id: string; weekday: number; start_time: string; end_time: string; material_plan: string | null; is_active: boolean };
 export type WorkspaceEnrollment = { id: string; class_id: string; student_id: string; ended_on: string | null };
+export type WorkspaceTarget = { id: string; version_id: string; school_grade: number; code: string | null; title: string; description: string | null; target_value: number | null; target_unit: string | null; sort_order: number };
 export type WorkspaceArea = { id: string; name: string };
 export type WorkspaceVillage = { id: string; area_id: string; name: string };
 export type AccountRole = "super_admin" | "admin_daerah" | "admin_desa" | "pj_kelompok" | "pengajar";
@@ -116,7 +117,7 @@ export async function saveAttendance(input: { classId: string; date: string; use
 
 export async function saveDailyJournal(input: { classId: string; userId: string; date: string; startedAt: string; endedAt: string; material: string; achievement?: string; obstacles?: string; improvementPlan?: string; notes?: string }) {
   if (!supabase) throw new Error("Supabase belum terhubung");
-  const { error } = await supabase.from("daily_journals").upsert({
+  const { data, error } = await supabase.from("daily_journals").upsert({
     class_id: input.classId,
     journal_date: input.date,
     responsible_user_id: input.userId,
@@ -130,8 +131,69 @@ export async function saveDailyJournal(input: { classId: string; userId: string;
     notes: input.notes || null,
     submitted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  }, { onConflict: "class_id,journal_date" });
+  }, { onConflict: "class_id,journal_date" }).select("id").single();
   if (error) throw error;
+  return data?.id ?? null;
+}
+
+export async function saveClass(input: { id?: string; groupId: string; name: string; description?: string }) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const payload = { group_id: input.groupId, name: input.name.trim(), description: input.description?.trim() || null, is_active: true, updated_at: new Date().toISOString() };
+  const query = input.id ? supabase.from("classes").update(payload).eq("id", input.id) : supabase.from("classes").insert(payload);
+  const { error } = await query;
+  if (error) throw error;
+}
+
+export async function saveSchedule(input: { id?: string; classId: string; teacherId?: string; weekday: number; startTime: string; endTime: string; materialPlan?: string }) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const payload = { class_id: input.classId, teacher_id: input.teacherId || null, weekday: input.weekday, start_time: input.startTime, end_time: input.endTime, material_plan: input.materialPlan?.trim() || null, is_active: true, updated_at: new Date().toISOString() };
+  const query = input.id ? supabase.from("schedules").update(payload).eq("id", input.id) : supabase.from("schedules").insert(payload);
+  const { error } = await query;
+  if (error) throw error;
+}
+
+export async function deleteSchedule(id: string) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const { error } = await supabase.from("schedules").update({ is_active: false, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadTargets() {
+  if (!supabase) return [] as WorkspaceTarget[];
+  const { data, error } = await supabase.from("targets").select("id,version_id,school_grade,code,title,description,target_value,target_unit,sort_order").order("school_grade").order("sort_order");
+  if (error) throw error;
+  return (data ?? []) as WorkspaceTarget[];
+}
+
+export async function saveTarget(input: { id?: string; areaId: string; createdBy: string; schoolGrade: number; title: string; description?: string; targetValue?: number; targetUnit?: string }) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  let versionId = input.id ? undefined : undefined;
+  if (!versionId) {
+    const { data: version } = await supabase.from("target_versions").select("id").eq("area_id", input.areaId).eq("title", "Target Pembelajaran").order("version", { ascending: false }).limit(1).maybeSingle();
+    versionId = version?.id;
+  }
+  if (!versionId) {
+    const { data: version, error } = await supabase.from("target_versions").insert({ area_id: input.areaId, title: "Target Pembelajaran", period_start: new Date().toISOString().slice(0, 10), period_end: `${new Date().getFullYear()}-12-31`, version: 1, published_at: new Date().toISOString(), created_by: input.createdBy }).select("id").single();
+    if (error) throw error;
+    versionId = version.id;
+  }
+  const payload = { version_id: versionId, school_grade: input.schoolGrade, title: input.title.trim(), description: input.description?.trim() || null, target_value: input.targetValue ?? null, target_unit: input.targetUnit?.trim() || null };
+  const query = input.id ? supabase.from("targets").update(payload).eq("id", input.id) : supabase.from("targets").insert(payload);
+  const { error } = await query;
+  if (error) throw error;
+}
+
+export async function deleteTarget(id: string) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const { error } = await supabase.from("targets").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadAttendanceSummary() {
+  if (!supabase) return [] as Array<{ student_id: string; status: "hadir" | "izin" | "alpha"; session_date: string; class_id: string }>;
+  const { data, error } = await supabase.from("attendance_records").select("student_id,status,attendance_sessions!inner(session_date,class_id)").order("recorded_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({ student_id: row.student_id, status: row.status, session_date: (row.attendance_sessions as unknown as { session_date: string }).session_date, class_id: (row.attendance_sessions as unknown as { class_id: string }).class_id }));
 }
 
 export async function loadAccounts() {
