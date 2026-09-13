@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "@fontsource-variable/plus-jakarta-sans";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import { emptyWorkspace, loadWorkspace, saveAttendance, saveDailyJournal, saveStudent, setStudentStatus, type WorkspaceData, type WorkspaceStudent } from "./lib/data";
 import {
   Bell,
   CalendarBlank,
@@ -53,7 +54,12 @@ const menuItems: { id: Screen; label: string; icon: typeof House; hint: string }
   { id: "settings", label: "Pengaturan", icon: Gear, hint: "Profil, AI, dan tema" },
 ];
 
-const students = [
+const desktopNavItems = [
+  ...navItems,
+  ...menuItems,
+];
+
+const demoStudents = [
   { id: 1, name: "Ahmad Fauzan", grade: "Kelas 1 SD", initials: "AF", active: true },
   { id: 2, name: "Naila Azzahra", grade: "Kelas 3 SD", initials: "NA", active: true },
   { id: 3, name: "Rizki Maulana", grade: "Kelas 2 SD", initials: "RM", active: true },
@@ -73,6 +79,8 @@ export default function Prototype() {
   const [toast, setToast] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [workspace, setWorkspace] = useState<WorkspaceData>(emptyWorkspace);
+  const [dataState, setDataState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const previewMode = !isSupabaseConfigured || new URLSearchParams(window.location.search).get("preview") === "1";
 
   useEffect(() => {
@@ -103,6 +111,21 @@ export default function Prototype() {
       });
   }, [authUser, previewMode]);
 
+  const refreshWorkspace = async () => {
+    if (!authUser || previewMode) return;
+    setDataState("loading");
+    try {
+      setWorkspace(await loadWorkspace());
+      setDataState("ready");
+    } catch (error) {
+      console.error(error);
+      setDataState("error");
+      notify("Data gagal dimuat. Periksa koneksi dan akses akun.");
+    }
+  };
+
+  useEffect(() => { void refreshWorkspace(); }, [authUser, previewMode]);
+
   const go = (next: Screen) => {
     setScreen(next);
     setMenuOpen(false);
@@ -119,6 +142,20 @@ export default function Prototype() {
 
   return (
     <div className={cx("one-pro-shell", dark && "is-dark")}>
+      <aside className="desktop-sidebar" aria-label="Navigasi desktop">
+        <button className="desktop-brand" onClick={() => go("home")}>
+          <span className="desktop-brand-logo" />
+          <span><strong>One Pro</strong><small>Jurnal Digital</small></span>
+        </button>
+        <div className="desktop-scope"><span>DAERAH</span><strong>Malang Timur</strong><small>{role}</small></div>
+        <nav className="desktop-nav">
+          {desktopNavItems.map((item) => {
+            const Icon = item.icon;
+            return <button key={item.id} className={cx(screen === item.id && "active")} onClick={() => go(item.id)}><Icon size={20} weight={screen === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
+          })}
+        </nav>
+        <div className="desktop-sidebar-footer"><span className="connection-dot" />Supabase terhubung</div>
+      </aside>
       <header className="topbar">
         <button className="brand-button" onClick={() => go("home")} aria-label="Buka beranda">
           <img src="/brand/one-pro-logo.svg" alt="One Pro" />
@@ -135,12 +172,13 @@ export default function Prototype() {
       </header>
 
       <MobileScroll className="app-screen">
-        <main className="screen-content" data-testid="one-pro-app">
-          {screen === "home" ? <Home role={role} setRole={setRole} go={go} previewMode={previewMode} /> : null}
+        <main className={cx("screen-content", `screen-${screen}`)} data-testid="one-pro-app">
+          {dataState === "loading" ? <div className="data-sync" role="status">Menyinkronkan data…</div> : null}
+          {screen === "home" ? <Home role={role} setRole={setRole} go={go} previewMode={previewMode} workspace={workspace} /> : null}
           {screen === "agenda" ? <Agenda notify={notify} go={go} /> : null}
-          {screen === "attendance" ? <AttendanceScreen notify={notify} /> : null}
-          {screen === "journal" ? <Journal notify={notify} /> : null}
-          {screen === "students" ? <Students notify={notify} /> : null}
+          {screen === "attendance" ? <AttendanceScreen notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
+          {screen === "journal" ? <Journal notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
+          {screen === "students" ? <Students notify={notify} workspace={workspace} refresh={refreshWorkspace} previewMode={previewMode} /> : null}
           {screen === "targets" ? <Targets notify={notify} /> : null}
           {screen === "reports" ? <Reports notify={notify} /> : null}
           {screen === "team" ? <Team notify={notify} /> : null}
@@ -175,7 +213,7 @@ function PageHeader({ title, subtitle, action }: { title: string; subtitle?: str
   return <div className="page-heading"><div><h1>{title}</h1>{subtitle ? <p>{subtitle}</p> : null}</div>{action}</div>;
 }
 
-function Home({ role, setRole, go, previewMode }: { role: Role; setRole: (role: Role) => void; go: (screen: Screen) => void; previewMode: boolean }) {
+function Home({ role, setRole, go, previewMode, workspace }: { role: Role; setRole: (role: Role) => void; go: (screen: Screen) => void; previewMode: boolean; workspace: WorkspaceData }) {
   return <>
     <div className="context-row">
       <div><span className="eyebrow">MALANG TIMUR</span><h1>{role === "Pengajar" ? "Kelas hari ini" : role === "PJ Kelompok" ? "Mangliawan Utara" : "Pantauan wilayah"}</h1></div>
@@ -184,14 +222,16 @@ function Home({ role, setRole, go, previewMode }: { role: Role; setRole: (role: 
       </select> : <span className="role-badge">{role}</span>}
     </div>
 
-    {role === "Pengajar" || role === "PJ Kelompok" ? <OperationalHome go={go} /> : <MonitoringHome role={role} go={go} />}
+    {role === "Pengajar" || role === "PJ Kelompok" ? <OperationalHome go={go} workspace={workspace} previewMode={previewMode} /> : <MonitoringHome role={role} go={go} workspace={workspace} previewMode={previewMode} />}
   </>;
 }
 
-function OperationalHome({ go }: { go: (screen: Screen) => void }) {
+function OperationalHome({ go, workspace, previewMode }: { go: (screen: Screen) => void; workspace: WorkspaceData; previewMode: boolean }) {
+  const activeStudents = previewMode ? 42 : workspace.students.filter((student) => student.status === "active").length;
+  const scheduleCount = previewMode ? 3 : workspace.schedules.length;
   return <>
     <section className="focus-panel">
-      <div className="focus-head"><div><span>HARI INI</span><strong>3 kelas</strong><small>Senin, 14 September 2026</small></div><CalendarBlank size={27} /></div>
+      <div className="focus-head"><div><span>HARI INI</span><strong>{scheduleCount} kelas</strong><small>{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date())}</small></div><CalendarBlank size={27} /></div>
       <div className="schedule-list compact">
         <Schedule time="07.00" end="08.00" title="Tahsin Al-Qur'an" teacher="Ust. Ahmad Fauzi" status="Selesai" tone="success" />
         <Schedule time="16.00" end="17.30" title="Kelas Al-Fatihah" teacher="Ustaz Ahmad" status="Menunggu jurnal" tone="warning" action={() => go("journal")} />
@@ -199,7 +239,7 @@ function OperationalHome({ go }: { go: (screen: Screen) => void }) {
       </div>
     </section>
     <section className="metric-strip" aria-label="Ringkasan kelompok">
-      <Metric value="42" label="Siswa aktif" />
+      <Metric value={String(activeStudents)} label="Siswa aktif" />
       <Metric value="91%" label="Hadir bulan ini" />
       <Metric value="1" label="Laporan terlambat" warning />
     </section>
@@ -212,13 +252,15 @@ function OperationalHome({ go }: { go: (screen: Screen) => void }) {
   </>;
 }
 
-function MonitoringHome({ role, go }: { role: Role; go: (screen: Screen) => void }) {
+function MonitoringHome({ role, go, workspace, previewMode }: { role: Role; go: (screen: Screen) => void; workspace: WorkspaceData; previewMode: boolean }) {
+  const activeStudents = previewMode ? 486 : workspace.students.filter((student) => student.status === "active").length;
+  const groupCount = previewMode ? 16 : workspace.groups.length;
   return <>
     <section className="progress-hero">
       <div><span>CAPAIAN TARGET</span><h2>78%</h2></div><div className="progress-copy"><strong>September 2026</strong><small>Naik 6% dari Agustus</small></div>
       <div className="progress-track"><span style={{ width: "78%" }} /></div>
     </section>
-    <section className="metric-strip"><Metric value="486" label="Siswa aktif" /><Metric value="88%" label="Kehadiran" /><Metric value="16" label="Kelompok" /></section>
+    <section className="metric-strip"><Metric value={String(activeStudents)} label="Siswa aktif" /><Metric value="88%" label="Kehadiran" /><Metric value={String(groupCount)} label="Kelompok" /></section>
     <SectionTitle title="Progres per desa" action="Lihat wilayah" />
     <div className="village-list">
       <Village rank="01" name="Mangliawan" attendance="92%" progress="88%" status="Sangat baik" />
@@ -269,44 +311,145 @@ function Agenda({ notify, go }: { notify: (message: string) => void; go: (screen
   </>;
 }
 
-function AttendanceScreen({ notify }: { notify: (message: string) => void }) {
-  const [records, setRecords] = useState<Record<number, Attendance>>({1:"H",2:"H",3:"I",4:"H"});
-  const save = () => notify("Presensi 4 siswa berhasil disimpan");
+function AttendanceScreen({ notify, workspace, userId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean }) {
+  const [classId, setClassId] = useState(workspace.classes[0]?.id ?? "");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [records, setRecords] = useState<Record<string, Attendance>>({});
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (!classId && workspace.classes[0]) setClassId(workspace.classes[0].id); }, [classId, workspace.classes]);
+  const selectedClass = workspace.classes.find((item) => item.id === classId);
+  const enrolledIds = new Set(workspace.enrollments.filter((item) => item.class_id === classId).map((item) => item.student_id));
+  const liveStudents = previewMode ? demoStudents.filter((student) => student.active).map((student) => ({ id: String(student.id), full_name: student.name, school_grade: student.grade === "PAUD" ? 0 : Number(student.grade.match(/\d/)?.[0] ?? 1) })) : workspace.students.filter((student) => student.status === "active" && (enrolledIds.size ? enrolledIds.has(student.id) : student.group_id === selectedClass?.group_id));
+  const save = async () => {
+    if (previewMode) { notify(`Presensi ${Object.keys(records).length} siswa siap disimpan`); return; }
+    if (!classId || !userId || liveStudents.some((student) => !records[student.id])) { notify("Pilih kelas dan isi status semua anak terlebih dahulu"); return; }
+    setSaving(true);
+    try {
+      await saveAttendance({ classId, date, userId, records: liveStudents.map((student) => ({ studentId: student.id, status: records[student.id] === "H" ? "hadir" : records[student.id] === "I" ? "izin" : "alpha" })) });
+      notify(`Presensi ${liveStudents.length} siswa berhasil disimpan`);
+    } catch (error) { notify(error instanceof Error ? error.message : "Presensi gagal disimpan"); }
+    finally { setSaving(false); }
+  };
   return <>
-    <PageHeader title="Isi Presensi" subtitle="Kelas Al-Fatihah • 14 September 2026" />
-    <div className="summary-line"><span><Clock size={17} />16.00–17.30</span><span>{Object.keys(records).length}/4 terisi</span></div>
-    <div className="attendance-list">{students.filter((student) => student.active).slice(0,4).map((student) => <div className="attendance-row" key={student.id}><Avatar initials={student.initials} /><span><strong>{student.name}</strong><small>{student.grade}</small></span><div className="attendance-options">{(["H","I","A"] as Attendance[]).map((status) => <button key={status} className={cx(records[student.id] === status && "active", status === "A" && "absent")} onClick={() => setRecords((value) => ({...value,[student.id]:status}))}>{status}</button>)}</div></div>)}</div>
+    <PageHeader title="Isi Presensi" subtitle="Riwayat anak nonaktif tetap tersimpan" />
+    <div className="attendance-controls"><label className="field"><span>Kelas pengajian</span><select value={classId} onChange={(event) => { setClassId(event.target.value); setRecords({}); }}>{previewMode ? <option value="demo">Kelas Al-Fatihah</option> : workspace.classes.filter((item) => item.is_active).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="field"><span>Tanggal</span><KeyboardInput type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></div>
+    <div className="summary-line"><span><Clock size={17} />{selectedClass?.name ?? "Pilih kelas"}</span><span>{Object.keys(records).length}/{liveStudents.length} terisi</span></div>
+    {liveStudents.length ? <div className="attendance-list">{liveStudents.map((student) => <div className="attendance-row" key={student.id}><Avatar initials={initialsFor(student.full_name)} /><span><strong>{student.full_name}</strong><small>{gradeLabel(student.school_grade)}</small></span><div className="attendance-options">{(["H","I","A"] as Attendance[]).map((status) => <button key={status} className={cx(records[student.id] === status && "active", status === "A" && "absent")} onClick={() => setRecords((value) => ({...value,[student.id]:status}))}>{status}</button>)}</div></div>)}</div> : <EmptyState icon={<Users size={30} />} title="Belum ada anak di kelas" text="Masukkan anak melalui pembagian kelas sebelum mengisi presensi." />}
     <div className="legend"><span><i className="h" />Hadir</span><span><i className="i" />Izin</span><span><i className="a" />Alfa</span></div>
-    <button className="primary-button" onClick={save}><Check size={18} />Simpan presensi</button>
+    <button className="primary-button" disabled={saving || !liveStudents.length} onClick={() => void save()}><Check size={18} />{saving ? "Menyimpan…" : "Simpan presensi"}</button>
   </>;
 }
 
-function Journal({ notify }: { notify: (message: string) => void }) {
+function Journal({ notify, workspace, userId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean }) {
   const [progress, setProgress] = useState(false);
+  const [classId, setClassId] = useState(workspace.classes[0]?.id ?? "");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startedAt, setStartedAt] = useState("16:00");
+  const [endedAt, setEndedAt] = useState("17:30");
+  const [material, setMaterial] = useState("");
+  const [achievement, setAchievement] = useState("");
+  const [obstacles, setObstacles] = useState("");
+  const [improvementPlan, setImprovementPlan] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (!classId && workspace.classes[0]) setClassId(workspace.classes[0].id); }, [classId, workspace.classes]);
+  const submit = async () => {
+    if (previewMode) { notify("Jurnal siap disimpan pada mode data nyata"); return; }
+    if (!classId || !userId || !material.trim()) { notify("Kelas dan materi wajib diisi"); return; }
+    setSaving(true);
+    try { await saveDailyJournal({ classId, userId, date, startedAt, endedAt, material, achievement, obstacles, improvementPlan, notes }); notify("Jurnal berhasil disimpan dan rekap diperbarui"); }
+    catch (error) { notify(error instanceof Error ? error.message : "Jurnal gagal disimpan"); }
+    finally { setSaving(false); }
+  };
   return <>
-    <PageHeader title="Jurnal Harian" subtitle="Kelas Al-Fatihah • Senin, 14 September" />
+    <PageHeader title="Jurnal Harian" subtitle="Data jurnal menjadi sumber rekap bulanan dan laporan individu" />
     <section className="data-card form-card">
-      <div className="form-grid two"><Field label="Jam mulai" value="16.00" /><Field label="Jam selesai" value="17.30" /></div>
-      <TextArea label="Materi yang disampaikan" placeholder="Tuliskan materi hari ini" />
-      <TextArea label="Capaian dan kendala" placeholder="Apa yang tercapai atau perlu diperbaiki?" />
+      <div className="form-grid two"><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{previewMode ? <option value="demo">Kelas Al-Fatihah</option> : workspace.classes.filter((item) => item.is_active).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><label className="field"><span>Tanggal</span><KeyboardInput type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></div>
+      <div className="form-grid two"><label className="field"><span>Jam mulai</span><KeyboardInput type="time" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} /></label><label className="field"><span>Jam selesai</span><KeyboardInput type="time" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} /></label></div>
+      <label className="field"><span>Materi yang disampaikan</span><KeyboardTextarea value={material} onChange={(event) => setMaterial(event.target.value)} placeholder="Tuliskan materi hari ini" rows={3} /></label>
+      <label className="field"><span>Pencapaian</span><KeyboardTextarea value={achievement} onChange={(event) => setAchievement(event.target.value)} placeholder="Capaian pembelajaran hari ini" rows={2} /></label>
+      <label className="field"><span>Keluhan atau kendala</span><KeyboardTextarea value={obstacles} onChange={(event) => setObstacles(event.target.value)} placeholder="Kendala yang ditemukan" rows={2} /></label>
+      <label className="field"><span>Saran pembenahan berikutnya</span><KeyboardTextarea value={improvementPlan} onChange={(event) => setImprovementPlan(event.target.value)} placeholder="Langkah perbaikan pertemuan berikutnya" rows={2} /></label>
+      <label className="field"><span>Catatan tambahan</span><KeyboardTextarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Catatan lain bila ada" rows={2} /></label>
       <label className="switch-row"><span><strong>Catat progres individu</strong><small>Opsional, pilih hanya anak yang diamati</small></span><button className={cx("switch", progress && "on")} onClick={() => setProgress((value) => !value)} aria-label="Catat progres individu"><span /></button></label>
       {progress ? <div className="progress-entry"><div className="student-mini"><Avatar initials="AF" /><span><strong>Ahmad Fauzan</strong><small>Target: Mengenal huruf hijaiyah</small></span></div><div className="chip-row">{["Mulai","Berkembang","Perlu penguatan","Tercapai"].map((item, index) => <button key={item} className={cx(index === 1 && "active")}>{item}</button>)}</div><TextArea label="Catatan pengamatan" placeholder="Contoh: masih tertukar huruf ba dan ta" /></div> : null}
     </section>
-    <button className="primary-button" onClick={() => notify("Jurnal berhasil disimpan dan rekap diperbarui")}><Check size={18} />Simpan jurnal</button>
+    <button className="primary-button" disabled={saving} onClick={() => void submit()}><Check size={18} />{saving ? "Menyimpan…" : "Simpan jurnal"}</button>
   </>;
 }
 
-function Students({ notify }: { notify: (message: string) => void }) {
+function Students({ notify, workspace, refresh, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; refresh: () => Promise<void>; previewMode: boolean }) {
   const [showPhotos, setShowPhotos] = useState(true);
   const [query, setQuery] = useState("");
-  const filtered = useMemo(() => students.filter((student) => student.name.toLowerCase().includes(query.toLowerCase())), [query]);
+  const [editing, setEditing] = useState<WorkspaceStudent | "new" | null>(null);
+  const [saving, setSaving] = useState(false);
+  const liveStudents = previewMode ? demoStudents.map((student) => ({ id: String(student.id), group_id: "demo", full_name: student.name, nickname: null, birth_place: null, birth_date: null, address: null, phone: null, father_name: null, mother_name: null, father_phone: null, mother_phone: null, school_grade: student.grade === "PAUD" ? 0 : Number(student.grade.match(/\d/)?.[0] ?? 1), photo_path: null, show_photo: true, status: student.active ? "active" as const : "inactive" as const })) : workspace.students;
+  const filtered = useMemo(() => liveStudents.filter((student) => student.full_name.toLowerCase().includes(query.toLowerCase())), [liveStudents, query]);
+  const activeCount = liveStudents.filter((student) => student.status === "active").length;
+  const inactiveCount = liveStudents.filter((student) => student.status !== "active").length;
   return <>
-    <PageHeader title="Database Anak" subtitle="42 aktif • 3 nonaktif" action={<button className="primary-icon" onClick={() => notify("Form anak baru dibuka")}><Plus size={20} /></button>} />
+    <PageHeader title="Database Anak" subtitle={`${activeCount} aktif • ${inactiveCount} nonaktif`} action={<button className="primary-icon" onClick={() => setEditing("new")} aria-label="Tambah anak"><Plus size={20} /></button>} />
     <div className="toolbar"><label className="search"><MagnifyingGlass size={17} /><KeyboardInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama anak" /></label><button className={cx("photo-toggle", showPhotos && "active")} onClick={() => setShowPhotos((value) => !value)}><UserCircle size={18} />Foto</button></div>
-    <div className="student-list">{filtered.map((student) => <button className="student-row" key={student.id}>{showPhotos ? <Avatar initials={student.initials} muted={!student.active} /> : null}<span><strong>{student.name}</strong><small>{student.grade} • {student.active ? "Aktif" : "Nonaktif — riwayat tersimpan"}</small></span><PencilSimple size={17} /></button>)}</div>
+    {filtered.length ? <div className="student-list">{filtered.map((student) => <button className="student-row" key={student.id} onClick={() => setEditing(student)}>{showPhotos && student.show_photo ? <Avatar initials={initialsFor(student.full_name)} muted={student.status !== "active"} /> : null}<span><strong>{student.full_name}</strong><small>{gradeLabel(student.school_grade)} • {student.status === "active" ? "Aktif" : "Nonaktif — riwayat tetap tersimpan"}</small></span><PencilSimple size={17} /></button>)}</div> : <EmptyState icon={<Student size={30} />} title="Belum ada data anak" text="Tambahkan anak atau impor data Excel." />}
     <div className="split-actions"><button className="secondary-button" onClick={() => notify("Template Excel siap diunduh")}><DownloadSimple size={17} />Template</button><button className="secondary-button" onClick={() => notify("Pilih file Excel untuk diimpor")}><UploadSimple size={17} />Import</button></div>
+    {editing ? <StudentEditor student={editing === "new" ? null : editing} groups={workspace.groups} saving={saving} onClose={() => setEditing(null)} onSave={async (values) => {
+      if (previewMode) { notify("Mode pratinjau: data tidak disimpan"); setEditing(null); return; }
+      setSaving(true);
+      try { await saveStudent(values); await refresh(); notify("Data anak berhasil disimpan"); setEditing(null); }
+      catch (error) { notify(error instanceof Error ? error.message : "Data anak gagal disimpan"); }
+      finally { setSaving(false); }
+    }} onDeactivate={async (student) => {
+      if (previewMode) { notify("Mode pratinjau: status tidak diubah"); return; }
+      setSaving(true);
+      try { await setStudentStatus(student.id, student.status === "active" ? "inactive" : "active"); await refresh(); notify(student.status === "active" ? "Anak dinonaktifkan; riwayat presensi tetap aman" : "Anak diaktifkan kembali"); setEditing(null); }
+      catch (error) { notify(error instanceof Error ? error.message : "Status gagal diubah"); }
+      finally { setSaving(false); }
+    }} /> : null}
   </>;
 }
+
+function StudentEditor({ student, groups, saving, onClose, onSave, onDeactivate }: { student: WorkspaceStudent | null; groups: WorkspaceData["groups"]; saving: boolean; onClose: () => void; onSave: (student: Partial<WorkspaceStudent> & Pick<WorkspaceStudent, "group_id" | "full_name">) => Promise<void>; onDeactivate: (student: WorkspaceStudent) => Promise<void> }) {
+  const [form, setForm] = useState(() => ({
+    group_id: student?.group_id ?? groups[0]?.id ?? "",
+    full_name: student?.full_name ?? "",
+    nickname: student?.nickname ?? "",
+    birth_place: student?.birth_place ?? "",
+    birth_date: student?.birth_date ?? "",
+    address: student?.address ?? "",
+    phone: student?.phone ?? "",
+    father_name: student?.father_name ?? "",
+    mother_name: student?.mother_name ?? "",
+    father_phone: student?.father_phone ?? "",
+    mother_phone: student?.mother_phone ?? "",
+    school_grade: student?.school_grade ?? 0,
+    show_photo: student?.show_photo ?? false,
+  }));
+  const field = (key: keyof typeof form, value: string | number | boolean) => setForm((current) => ({ ...current, [key]: value }));
+  return <div className="editor-overlay" role="dialog" aria-modal="true" aria-label={student ? "Edit anak" : "Tambah anak"}>
+    <section className="editor-panel">
+      <div className="editor-head"><div><span className="eyebrow">DATABASE ANAK</span><h2>{student ? "Edit data" : "Tambah anak"}</h2></div><button className="icon-button" onClick={onClose} aria-label="Tutup"><X size={19} /></button></div>
+      <div className="editor-grid">
+        <label className="field"><span>Kelompok</span><select value={form.group_id} onChange={(event) => field("group_id", event.target.value)}>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
+        <label className="field"><span>Nama lengkap</span><KeyboardInput value={form.full_name} onChange={(event) => field("full_name", event.target.value)} /></label>
+        <label className="field"><span>Nama panggilan</span><KeyboardInput value={form.nickname} onChange={(event) => field("nickname", event.target.value)} /></label>
+        <label className="field"><span>Jenjang sekolah</span><select value={form.school_grade} onChange={(event) => field("school_grade", Number(event.target.value))}>{[0,1,2,3,4,5,6].map((grade) => <option key={grade} value={grade}>{gradeLabel(grade)}</option>)}</select></label>
+        <label className="field"><span>Tempat lahir</span><KeyboardInput value={form.birth_place} onChange={(event) => field("birth_place", event.target.value)} /></label>
+        <label className="field"><span>Tanggal lahir</span><KeyboardInput type="date" value={form.birth_date} onChange={(event) => field("birth_date", event.target.value)} /></label>
+        <label className="field editor-wide"><span>Alamat rumah</span><KeyboardTextarea value={form.address} onChange={(event) => field("address", event.target.value)} rows={2} /></label>
+        <label className="field"><span>Nomor HP anak</span><KeyboardInput value={form.phone} onChange={(event) => field("phone", event.target.value)} /></label>
+        <label className="field"><span>Nama ayah</span><KeyboardInput value={form.father_name} onChange={(event) => field("father_name", event.target.value)} /></label>
+        <label className="field"><span>WhatsApp ayah</span><KeyboardInput value={form.father_phone} onChange={(event) => field("father_phone", event.target.value)} /></label>
+        <label className="field"><span>Nama ibu</span><KeyboardInput value={form.mother_name} onChange={(event) => field("mother_name", event.target.value)} /></label>
+        <label className="field"><span>WhatsApp ibu</span><KeyboardInput value={form.mother_phone} onChange={(event) => field("mother_phone", event.target.value)} /></label>
+        <label className="switch-row editor-wide"><span><strong>Tampilkan foto anak</strong><small>Foto tetap opsional dan dapat disembunyikan</small></span><button type="button" className={cx("switch", form.show_photo && "on")} onClick={() => field("show_photo", !form.show_photo)}><span /></button></label>
+      </div>
+      <div className="editor-actions">{student ? <button className="danger-button" disabled={saving} onClick={() => void onDeactivate(student)}>{student.status === "active" ? "Nonaktifkan" : "Aktifkan kembali"}</button> : null}<button className="secondary-button" onClick={onClose}>Batal</button><button className="primary-button" disabled={saving || !form.group_id || !form.full_name.trim()} onClick={() => void onSave({ ...form, id: student?.id, status: student?.status ?? "active" })}>{saving ? "Menyimpan…" : "Simpan data"}</button></div>
+    </section>
+  </div>;
+}
+
+function initialsFor(name: string) { return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(); }
+function gradeLabel(grade: number | null) { return grade === 0 ? "PAUD" : grade ? `Kelas ${grade} SD` : "Jenjang belum diisi"; }
 
 function Targets({ notify }: { notify: (message: string) => void }) {
   return <>
@@ -378,20 +521,22 @@ function Settings({ dark, setDark, notify, onSignOut }: { dark: boolean; setDark
 function AuthScreen({ ready }: { ready: boolean }) {
   const [register, setRegister] = useState(false);
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!supabase || !email || password.length < 8 || (register && !fullName.trim())) {
+    const username = identifier.trim().toLowerCase();
+    const email = username.includes("@") ? username : `${username}@accounts.onepro.local`;
+    if (!supabase || !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username.replace(/@.*$/, "")) || password.length < 8 || (register && !fullName.trim())) {
       setMessage("Lengkapi data dan gunakan password minimal 8 karakter.");
       return;
     }
     setLoading(true);
     setMessage(null);
     const result = register
-      ? await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName.trim() } } })
+      ? await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName.trim(), username: username.replace(/@.*$/, "") } } })
       : await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (result.error) setMessage(result.error.message);
@@ -406,7 +551,7 @@ function AuthScreen({ ready }: { ready: boolean }) {
       <p>{register ? "Akun pertama menjadi Super Admin. Anggota berikutnya masuk melalui undangan." : "Gunakan akun anggota yang telah terdaftar."}</p>
       {!ready ? <div className="auth-loading">Memeriksa sesi…</div> : <>
         {register ? <label className="auth-field"><span>Nama lengkap</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} autoComplete="name" /></label> : null}
-        <label className="auth-field"><span>Email</span><input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" /></label>
+        <label className="auth-field"><span>Username</span><input value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoCapitalize="none" spellCheck={false} autoComplete="username" /></label>
         <label className="auth-field"><span>Password</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete={register ? "new-password" : "current-password"} /></label>
         {message ? <div className="auth-message" role="status">{message}</div> : null}
         <button className="primary-button" disabled={loading} onClick={submit}>{loading ? "Memproses…" : register ? "Buat akun" : "Masuk"}</button>
