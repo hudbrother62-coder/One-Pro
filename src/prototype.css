@@ -218,3 +218,76 @@ button { -webkit-tap-highlight-color: transparent; }
   .editor-wide { grid-column: auto; }
   .editor-actions { grid-template-columns: 1fr 1fr; }.editor-actions .danger-button { grid-column: 1 / -1; }
 }
+
+
+/* dashboard-attendance-refresh-2026-09-17 */
+.dashboard-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+.summary-stat-card { min-width:0; min-height:118px; display:grid; align-content:center; gap:5px; padding:16px; text-align:left; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:17px; cursor:pointer; }
+.summary-stat-card:hover { border-color:color-mix(in srgb,var(--purple-2) 38%,var(--line)); background:color-mix(in srgb,var(--surface) 94%,var(--purple-2)); }
+.summary-stat-card span { color:var(--muted); font-size:9px; font-weight:800; letter-spacing:.8px; }
+.summary-stat-card strong { font-size:30px; line-height:1; color:var(--purple-2); letter-spacing:-1px; }
+.summary-stat-card.attendance strong { color:var(--blue); }
+.summary-stat-card small { color:var(--muted); font-size:9px; line-height:1.35; }
+.attendance-dashboard-card { margin-top:14px; padding:18px; background:var(--surface); border:1px solid var(--line); border-radius:19px; }
+.dashboard-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:18px; }
+.dashboard-card-head h2 { margin:4px 0 0; font-size:17px; letter-spacing:-.4px; }
+.dashboard-card-head > strong,.dashboard-card-head > small { color:var(--muted); font-size:9px; font-weight:700; text-transform:capitalize; }
+.class-attendance-bars { display:grid; gap:14px; }
+.class-attendance-row { display:grid; gap:7px; }
+.class-attendance-meta { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+.class-attendance-meta span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; font-weight:700; }
+.class-attendance-meta strong { font-size:10px; color:var(--blue); }
+.class-attendance-track { height:10px; overflow:hidden; border-radius:999px; background:var(--surface-2); border:1px solid color-mix(in srgb,var(--line) 75%,transparent); }
+.class-attendance-track span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--purple-2),var(--blue)); }
+.month-trend-card { margin-top:14px; }
+.month-trend-chart { height:220px; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; align-items:end; padding:10px 4px 0; }
+.month-trend-item { min-width:0; height:100%; display:grid; grid-template-rows:24px 1fr 24px; justify-items:center; gap:6px; padding:7px 5px; border-radius:13px; }
+.month-trend-item.current { background:color-mix(in srgb,var(--purple-2) 8%,var(--surface)); outline:1px solid color-mix(in srgb,var(--purple-2) 24%,var(--line)); }
+.month-trend-item b { color:var(--text); font-size:9px; }
+.month-trend-item > strong { color:var(--muted); font-size:8px; text-transform:capitalize; white-space:nowrap; }
+.month-trend-bar { width:min(32px,70%); height:100%; display:flex; align-items:flex-end; overflow:hidden; border-radius:10px 10px 5px 5px; background:var(--surface-2); }
+.month-trend-bar span { width:100%; min-height:0; border-radius:inherit; background:linear-gradient(180deg,var(--purple-2),var(--blue)); transition:height .25s ease; }
+.month-trend-item.current .month-trend-bar span { background:linear-gradient(180deg,#8b168f,#075797); }
+.dashboard-chart-note { margin:12px 0 0; color:var(--muted); font-size:8px; line-height:1.5; }
+.agenda-calendar-shell { width:min(100%,760px); margin:0 0 16px; }
+.agenda-calendar-shell .calendar-head { margin-bottom:8px; }
+.agenda-calendar-shell .month-calendar { margin-bottom:0; padding:9px; }
+.agenda-calendar-shell .calendar-grid { gap:4px; }
+.agenda-calendar-shell .calendar-grid button { aspect-ratio:auto; min-height:58px; display:grid; align-content:start; justify-items:start; gap:4px; padding:7px; overflow:hidden; }
+.calendar-date-number { font-size:10px; font-weight:800; line-height:1; }
+.calendar-agenda-preview { width:100%; display:grid; gap:2px; text-align:left; }
+.calendar-agenda-preview em { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:2px 4px; border-radius:5px; color:var(--blue); background:color-mix(in srgb,var(--blue) 9%,var(--surface)); font-size:6.5px; font-style:normal; font-weight:700; line-height:1.15; }
+.calendar-agenda-preview small { color:var(--muted); font-size:6px; font-weight:700; }
+.agenda-calendar-shell .calendar-grid button.active .calendar-agenda-preview em { color:white; background:#ffffff20; }
+.agenda-calendar-shell .calendar-grid button.active .calendar-agenda-preview small { color:#ffffffc9; }
+
+@media (min-width:900px) {
+  .dashboard-summary-grid { gap:16px; }
+  .summary-stat-card { min-height:132px; padding:20px; }
+  .summary-stat-card strong { font-size:38px; }
+  .summary-stat-card span,.summary-stat-card small { font-size:10px; }
+  .attendance-dashboard-card { padding:22px; }
+  .class-attendance-meta span,.class-attendance-meta strong { font-size:11px; }
+  .agenda-calendar-shell .calendar-grid button { min-height:68px; }
+}
+
+@media (max-width:560px) {
+  .dashboard-summary-grid { gap:7px; }
+  .summary-stat-card { min-height:100px; padding:11px 9px; border-radius:14px; }
+  .summary-stat-card span { font-size:7px; letter-spacing:.45px; }
+  .summary-stat-card strong { font-size:25px; }
+  .summary-stat-card small { font-size:7px; }
+  .attendance-dashboard-card { padding:14px; border-radius:16px; }
+  .dashboard-card-head { margin-bottom:14px; }
+  .dashboard-card-head h2 { font-size:14px; }
+  .month-trend-chart { height:180px; gap:5px; }
+  .month-trend-item { padding:5px 2px; }
+  .month-trend-bar { width:min(24px,72%); }
+  .agenda-calendar-shell .month-calendar { padding:7px; }
+  .agenda-calendar-shell .calendar-weekdays,.agenda-calendar-shell .calendar-grid { gap:3px; }
+  .agenda-calendar-shell .calendar-grid button { min-height:45px; padding:5px 4px; border-radius:8px; }
+  .calendar-date-number { font-size:9px; }
+  .calendar-agenda-preview { gap:1px; }
+  .calendar-agenda-preview em { padding:1px 2px; font-size:5.8px; }
+  .calendar-agenda-preview em:nth-of-type(n+2) { display:none; }
+}

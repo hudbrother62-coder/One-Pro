@@ -78,3 +78,13 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Fixed phone chrome should not animate with pushed screens. Screen content can animate; the status bar, camera cutout, and preview chrome should stay put.
 - Keep the keyboard below the home indicator/safe area layer in z-index, and above ordinary app UI while visible.
 - Keep the home indicator as the topmost safe-area layer in the z-index above everything else in the prototype.
+
+
+## Dashboard and agenda decisions — 2026-09-17
+
+- Operational home for Pengajar/PJ Kelompok must not use hardcoded class-of-the-day cards or hardcoded attendance percentages.
+- Top dashboard summary prioritizes active class count, total stored student count, and current-month attendance percentage from recorded attendance data.
+- Dashboard includes current-month average attendance by class and a five-month attendance comparison with the current month centered between two prior and two following months.
+- Agenda calendar stays compact, surfaces saved recurring agenda items inside the matching calendar dates, and the selected calendar date must stay synchronized with the agenda list below.
+- Use local calendar dates for agenda selection; do not derive date keys with UTC `toISOString()` when that can shift the visible date in Indonesian time zones.
+- These presentation changes must reuse the existing data model and must not require Supabase schema changes.

@@ -274,28 +274,89 @@ function Home({ role, setRole, go, previewMode, workspace }: { role: Role; setRo
 }
 
 function OperationalHome({ go, workspace, previewMode }: { go: (screen: Screen) => void; workspace: WorkspaceData; previewMode: boolean }) {
-  const activeStudents = previewMode ? 42 : workspace.students.filter((student) => student.status === "active").length;
-  const scheduleCount = previewMode ? 3 : workspace.schedules.length;
+  const [attendanceRows, setAttendanceRows] = useState<Array<{ student_id: string; status: "hadir" | "izin" | "alpha"; session_date: string; class_id: string }>>([]);
+  const activeClasses = workspace.classes.filter((item) => item.is_active);
+  const studentCount = workspace.students.length;
+  const monthKeyFor = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  const currentMonth = monthKeyFor(new Date());
+  const currentMonthRows = attendanceRows.filter((row) => row.session_date.startsWith(currentMonth));
+  const attendancePercent = currentMonthRows.length ? Math.round((currentMonthRows.filter((row) => row.status === "hadir").length / currentMonthRows.length) * 100) : 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (previewMode) {
+      setAttendanceRows([]);
+      return () => { cancelled = true; };
+    }
+    loadAttendanceSummary()
+      .then((rows) => { if (!cancelled) setAttendanceRows(rows); })
+      .catch((error) => console.error("Dashboard attendance summary failed", error));
+    return () => { cancelled = true; };
+  }, [previewMode]);
+
+  const classAttendance = activeClasses.map((klass) => {
+    const rows = currentMonthRows.filter((row) => row.class_id === klass.id);
+    const present = rows.filter((row) => row.status === "hadir").length;
+    return { id: klass.id, name: klass.name, percent: rows.length ? Math.round((present / rows.length) * 100) : 0, hasData: rows.length > 0 };
+  });
+
+  const monthSeries = [-2, -1, 0, 1, 2].map((offset) => {
+    const base = new Date();
+    const date = new Date(base.getFullYear(), base.getMonth() + offset, 1);
+    const key = monthKeyFor(date);
+    const rows = attendanceRows.filter((row) => row.session_date.startsWith(key));
+    const present = rows.filter((row) => row.status === "hadir").length;
+    const percent = rows.length ? Math.round((present / rows.length) * 100) : null;
+    return {
+      key,
+      label: new Intl.DateTimeFormat("id-ID", { month: "short", year: "2-digit" }).format(date).replace(".", ""),
+      percent,
+      current: offset === 0,
+    };
+  });
+
+  const currentMonthLabel = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date());
+
   return <>
-    <section className="focus-panel">
-      <div className="focus-head"><div><span>HARI INI</span><strong>{scheduleCount} kelas</strong><small>{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date())}</small></div><CalendarBlank size={27} /></div>
-      <div className="schedule-list compact">
-        <Schedule time="07.00" end="08.00" title="Tahsin Al-Qur'an" teacher="Ust. Ahmad Fauzi" status="Selesai" tone="success" />
-        <Schedule time="16.00" end="17.30" title="Kelas Al-Fatihah" teacher="Ustaz Ahmad" status="Menunggu jurnal" tone="warning" action={() => go("journal")} />
-        <Schedule time="18.30" end="19.30" title="Fiqih Dasar" teacher="Ustazah Siti" status="Akan dimulai" tone="neutral" />
+    <section className="dashboard-summary-grid" aria-label="Ringkasan kelompok">
+      <button className="summary-stat-card" onClick={() => go("agenda")}>
+        <span>DATA KELAS</span><strong>{activeClasses.length}</strong><small>Kelas aktif yang sudah dibuat</small>
+      </button>
+      <button className="summary-stat-card" onClick={() => go("students")}>
+        <span>DATA SISWA</span><strong>{studentCount}</strong><small>Seluruh siswa tersimpan</small>
+      </button>
+      <button className="summary-stat-card attendance" onClick={() => go("reports")}>
+        <span>PRESENSI BULAN INI</span><strong>{attendancePercent}%</strong><small>Rekap {currentMonthLabel}</small>
+      </button>
+    </section>
+
+    <section className="attendance-dashboard-card">
+      <div className="dashboard-card-head">
+        <div><span className="eyebrow">PRESENSI PER KELAS</span><h2>Rata-rata kehadiran bulan ini</h2></div>
+        <strong>{currentMonthLabel}</strong>
       </div>
+      {classAttendance.length ? <div className="class-attendance-bars">
+        {classAttendance.map((item) => <div className="class-attendance-row" key={item.id}>
+          <div className="class-attendance-meta"><span>{item.name}</span><strong>{item.hasData ? `${item.percent}%` : "—"}</strong></div>
+          <div className="class-attendance-track" aria-label={`${item.name}: ${item.hasData ? `${item.percent}%` : "belum ada data"}`}><span style={{ width: `${item.hasData ? item.percent : 0}%` }} /></div>
+        </div>)}
+      </div> : <EmptyState icon={<ChartLineUp size={30} />} title="Belum ada kelas" text="Kelas yang dibuat akan otomatis muncul pada grafik kehadiran." />}
     </section>
-    <section className="metric-strip" aria-label="Ringkasan kelompok">
-      <Metric value={String(activeStudents)} label="Siswa aktif" />
-      <Metric value="91%" label="Hadir bulan ini" />
-      <Metric value="1" label="Laporan terlambat" warning />
+
+    <section className="attendance-dashboard-card month-trend-card">
+      <div className="dashboard-card-head">
+        <div><span className="eyebrow">REKAP 5 BULAN</span><h2>Perbandingan kehadiran bulanan</h2></div>
+        <small>Bulan berjalan selalu di tengah</small>
+      </div>
+      <div className="month-trend-chart" aria-label="Grafik kehadiran lima bulan">
+        {monthSeries.map((item) => <div className={cx("month-trend-item", item.current && "current")} key={item.key}>
+          <b>{item.percent === null ? "—" : `${item.percent}%`}</b>
+          <div className="month-trend-bar"><span style={{ height: `${item.percent ?? 0}%` }} /></div>
+          <strong>{item.label}</strong>
+        </div>)}
+      </div>
+      <p className="dashboard-chart-note">Persentase dihitung dari data presensi yang sudah masuk pada masing-masing bulan.</p>
     </section>
-    <SectionTitle title="Perlu diselesaikan" action="Lihat semua" />
-    <div className="action-list">
-      <ActionRow icon={<ClipboardText />} title="Jurnal Kelas Al-Fatihah" meta="Batas pengisian pukul 20.00" badge="Segera" onClick={() => go("journal")} />
-      <ActionRow icon={<Users />} title="Presensi belum lengkap" meta="2 siswa belum dipilih" onClick={() => go("attendance")} />
-      <ActionRow icon={<ChartLineUp />} title="Tinjau progres individu" meta="6 anak memiliki catatan baru" onClick={() => go("reports")} />
-    </div>
   </>;
 }
 
@@ -345,7 +406,9 @@ function Village({ rank, name, attendance, progress, status, warning }: { rank: 
 
 function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage }: { notify: (message: string) => void; go: (screen: Screen) => void; workspace: WorkspaceData; refresh: () => Promise<void>; userId?: string; previewMode: boolean; canManage: boolean }) {
   const today = new Date();
-  const [activeDate, setActiveDate] = useState(today.toISOString().slice(0, 10));
+  const localDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const dateFromKey = (key: string) => { const [year, month, day] = key.split("-").map(Number); return new Date(year, month - 1, day, 12, 0, 0); };
+  const [activeDate, setActiveDate] = useState(localDateKey(today));
   const [open, setOpen] = useState<"schedule" | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [classId, setClassId] = useState(workspace.classes[0]?.id ?? "");
@@ -358,8 +421,24 @@ function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage
   const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
   const gridStart = new Date(monthStart); gridStart.setDate(1 - monthStart.getDay());
   const days = Array.from({ length: 42 }, (_, index) => { const date = new Date(gridStart); date.setDate(gridStart.getDate() + index); return date; });
-  const activeWeekday = new Date(`${activeDate}T12:00:00`).getDay();
-  const schedules = previewMode ? [] : workspace.schedules.filter((item) => item.weekday === activeWeekday);
+  const activeDay = dateFromKey(activeDate);
+  const activeWeekday = activeDay.getDay();
+  const schedules = previewMode ? [] : workspace.schedules.filter((item) => item.is_active && item.weekday === activeWeekday);
+
+  const setSelectedDate = (key: string) => {
+    const date = dateFromKey(key);
+    setActiveDate(key);
+    if (date.getMonth() !== calendarMonth.getMonth() || date.getFullYear() !== calendarMonth.getFullYear()) {
+      setCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    }
+  };
+
+  const moveMonth = (offset: number) => {
+    const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1);
+    setCalendarMonth(next);
+    setActiveDate(localDateKey(next));
+  };
+
   const submitClass = async () => {
     if (previewMode) { notify("Mode pratinjau: kelas tidak disimpan"); setOpen(null); return; }
     if (!groupId || !className.trim()) { notify("Nama kelas dan kelompok wajib diisi"); return; }
@@ -372,11 +451,20 @@ function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage
   };
   return <>
     <PageHeader title="Jadwal Mengaji" subtitle={canManage ? "Atur agenda rutin kelompok" : "Pantau agenda kelompok dalam satu bulan"} action={canManage ? <button className="primary-icon" onClick={() => { setClassId(workspace.classes[0]?.id ?? ""); setOpen("schedule"); }} aria-label="Tambah jadwal"><Plus size={20} /></button> : undefined} />
-    <div className="calendar-head"><button className="icon-button" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1,1))}>‹</button><strong>{new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric"}).format(calendarMonth)}</strong><button className="icon-button" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+1,1))}>›</button></div>
-    <div className="month-calendar"><div className="calendar-weekdays">{["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(d=><span key={d}>{d}</span>)}</div><div className="calendar-grid">{days.map((date) => { const key = date.toISOString().slice(0,10); const count=workspace.schedules.filter(s=>s.weekday===date.getDay()).length; return <button key={key} className={cx(activeDate===key&&"active",date.getMonth()!==calendarMonth.getMonth()&&"outside")} onClick={()=>setActiveDate(key)}><span>{date.getDate()}</span>{count?<i>{count}</i>:null}</button>; })}</div></div>
-    <SectionTitle title={`${schedules.length} jadwal • ${new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(new Date(activeDate+"T12:00:00"))}`} />
-    {schedules.length ? <div className="schedule-list card-list">{schedules.map((item) => { const klass = workspace.classes.find((candidate) => candidate.id === item.class_id); return <div className="schedule-row-wrap" key={item.id}><Schedule time={item.start_time.slice(0, 5)} end={item.end_time.slice(0, 5)} title={klass?.name ?? "Kelas"} teacher={item.material_plan || "Materi belum diisi"} status="Terjadwal" tone="neutral" action={() => go("journal")} /><button className="icon-button" onClick={async () => { if (!previewMode) { await deleteSchedule(item.id); await refresh(); notify("Jadwal dinonaktifkan"); } }} aria-label="Nonaktifkan jadwal"><Trash size={16} /></button></div>; })}</div> : <EmptyState icon={<CalendarBlank size={30} />} title="Belum ada jadwal" text="Tambahkan jadwal untuk hari ini agar guru mendapat pengingat." />}
-    {open ? <div className="editor-overlay" onMouseDown={(e)=>{if(e.target===e.currentTarget)setOpen(null)}} role="dialog" aria-modal="true" aria-label="Tambah jadwal"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">JADWAL MENGAJI</span><h2>Tambah agenda</h2></div><button className="icon-button" onClick={() => setOpen(null)} aria-label="Tutup"><X size={19} /></button></div><label className="field"><span>Tanggal</span><KeyboardInput type="date" value={activeDate} onChange={(event)=>setActiveDate(event.target.value)}/></label><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{workspace.classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><div className="form-grid two"><label className="field"><span>Mulai</span><KeyboardInput type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="field"><span>Selesai</span><KeyboardInput type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div><label className="field"><span>Materi rencana</span><KeyboardTextarea value={materialPlan} onChange={(event) => setMaterialPlan(event.target.value)} rows={3} placeholder="Materi yang akan diajarkan" /></label><label className="switch-row"><span><strong>Jadikan jadwal rutin</strong><small>Berulang setiap minggu pada hari yang sama</small></span><span className="status success">Aktif</span></label><button className="primary-button" disabled={saving || !classId} onClick={() => void submitSchedule()}>{saving ? "Menyimpan…" : "Simpan agenda"}</button></section></div> : null}
+    <section className="agenda-calendar-shell">
+      <div className="calendar-head"><button className="icon-button" onClick={() => moveMonth(-1)} aria-label="Bulan sebelumnya">‹</button><strong>{new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric"}).format(calendarMonth)}</strong><button className="icon-button" onClick={() => moveMonth(1)} aria-label="Bulan berikutnya">›</button></div>
+      <div className="month-calendar"><div className="calendar-weekdays">{["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(d=><span key={d}>{d}</span>)}</div><div className="calendar-grid">{days.map((date) => {
+        const key = localDateKey(date);
+        const daySchedules = workspace.schedules.filter((item) => item.is_active && item.weekday === date.getDay());
+        return <button key={key} className={cx(activeDate===key&&"active",date.getMonth()!==calendarMonth.getMonth()&&"outside")} onClick={()=>setSelectedDate(key)} aria-label={new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(date)}>
+          <span className="calendar-date-number">{date.getDate()}</span>
+          {daySchedules.length ? <span className="calendar-agenda-preview">{daySchedules.slice(0,2).map((item) => { const klass = workspace.classes.find((candidate) => candidate.id === item.class_id); return <em key={item.id}>{klass?.name ?? "Agenda"}</em>; })}{daySchedules.length > 2 ? <small>+{daySchedules.length - 2}</small> : null}</span> : null}
+        </button>;
+      })}</div></div>
+    </section>
+    <SectionTitle title={`${schedules.length} agenda • ${new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(activeDay)}`} />
+    {schedules.length ? <div className="schedule-list card-list">{schedules.map((item) => { const klass = workspace.classes.find((candidate) => candidate.id === item.class_id); return <div className="schedule-row-wrap" key={item.id}><Schedule time={item.start_time.slice(0, 5)} end={item.end_time.slice(0, 5)} title={klass?.name ?? "Kelas"} teacher={item.material_plan || "Materi belum diisi"} status="Terjadwal" tone="neutral" action={() => go("journal")} /><button className="icon-button" onClick={async () => { if (!previewMode) { await deleteSchedule(item.id); await refresh(); notify("Jadwal dinonaktifkan"); } }} aria-label="Nonaktifkan jadwal"><Trash size={16} /></button></div>; })}</div> : <EmptyState icon={<CalendarBlank size={30} />} title="Belum ada agenda" text="Tidak ada agenda yang terdaftar pada tanggal yang dipilih." />}
+    {open ? <div className="editor-overlay" onMouseDown={(e)=>{if(e.target===e.currentTarget)setOpen(null)}} role="dialog" aria-modal="true" aria-label="Tambah jadwal"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">JADWAL MENGAJI</span><h2>Tambah agenda</h2></div><button className="icon-button" onClick={() => setOpen(null)} aria-label="Tutup"><X size={19}/></button></div><label className="field"><span>Tanggal</span><KeyboardInput type="date" value={activeDate} onChange={(event)=>setSelectedDate(event.target.value)}/></label><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{workspace.classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><div className="form-grid two"><label className="field"><span>Mulai</span><KeyboardInput type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="field"><span>Selesai</span><KeyboardInput type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div><label className="field"><span>Materi rencana</span><KeyboardTextarea value={materialPlan} onChange={(event) => setMaterialPlan(event.target.value)} rows={3} placeholder="Materi yang akan diajarkan" /></label><label className="switch-row"><span><strong>Jadikan jadwal rutin</strong><small>Berulang setiap minggu pada hari yang sama</small></span><span className="status success">Aktif</span></label><button className="primary-button" disabled={saving || !classId} onClick={() => void submitSchedule()}>{saving ? "Menyimpan…" : "Simpan agenda"}</button></section></div> : null}
   </>;
 }
 
