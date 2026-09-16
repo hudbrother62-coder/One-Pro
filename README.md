@@ -28,3 +28,4 @@ npm test
 
 Skema awal tersedia di `supabase/migrations/202609120001_initial_schema.sql`.
 
+<!-- Keep deployment synchronized with the restored main branch. -->
