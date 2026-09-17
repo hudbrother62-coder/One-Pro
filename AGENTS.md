@@ -111,6 +111,8 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 
 ## Class database, attendance recap, and report-template decisions — 2026-09-17
 
+- Reports are month-first: the user selects month and class before generating output. CSV, print, Word, and PPT must use only that selected month. PPT generation uses a valid uploaded placeholder template when available, otherwise the built-in professional ONE PRO deck.
+
 - Class reports provide a built-in professional ONE PRO Word template (`.docx`) in addition to optional user-uploaded PowerPoint templates. Word output uses the monthly journal analysis internally but never labels the report as AI-generated.
 
 - Calendar visual language uses a restrained surface card, soft selected-cell tint, gradient only on the selected date number, compact agenda chips, and fully themed date/month/time controls; avoid full-cell gradients or native gray browser controls.

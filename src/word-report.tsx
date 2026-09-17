@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   AlignmentType,
   BorderStyle,
@@ -98,11 +98,9 @@ function statCell(label: string, value: string, accent = BRAND) {
   });
 }
 
-export function ProfessionalWordReport({ notify, workspace, month, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; month: string; previewMode: boolean }) {
-  const classes = useMemo(() => workspace.classes.filter((item) => item.is_active), [workspace.classes]);
-  const [classId, setClassId] = useState(classes[0]?.id ?? "");
+export function ProfessionalWordReport({ notify, workspace, month, classId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; month: string; classId: string; previewMode: boolean }) {
   const [generating, setGenerating] = useState(false);
-  const selectedClass = classes.find((item) => item.id === classId);
+  const selectedClass = workspace.classes.find((item) => item.id === classId && item.is_active);
 
   const generate = async () => {
     if (!selectedClass) { notify("Pilih kelas terlebih dahulu"); return; }
@@ -283,10 +281,10 @@ export function ProfessionalWordReport({ notify, workspace, month, previewMode }
       <div><h2>Laporan Word Profesional</h2><p>Template resmi ONE PRO sudah disiapkan sistem. Isi laporan diambil dari presensi, jurnal, perkembangan, dan analisis bulanan.</p></div>
     </header>
     <div className="word-report-controls">
-      <label><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+      <div className="word-template-badge"><strong>{selectedClass?.name ?? "Kelas belum dipilih"}</strong><small>Kelas laporan aktif</small></div>
       <div className="word-template-badge"><strong>Template ONE PRO Standard</strong><small>A4 • DOCX • siap edit dan cetak</small></div>
     </div>
     <div className="word-report-sections"><span>Ringkasan</span><span>Presensi</span><span>Perkembangan</span><span>Rekomendasi</span><span>Pengesahan</span></div>
-    <button className="word-download-button" disabled={generating || !classId} onClick={() => void generate()}><DownloadSimple size={18} />{generating ? "Menyusun laporan…" : "Unduh Laporan Word"}</button>
+    <button className="word-download-button" disabled={generating || !selectedClass || !month} onClick={() => void generate()}><DownloadSimple size={18} />{generating ? "Menyusun laporan…" : "Unduh Laporan Word"}</button>
   </section>;
 }
