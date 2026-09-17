@@ -26,4 +26,4 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "Add month-first Word and PPT reports"
           git push origin HEAD:main
-# retry after PPT type compatibility fixes
+# retry after PPT table compatibility fix
