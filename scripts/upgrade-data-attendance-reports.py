@@ -43,6 +43,13 @@ if needle in s and 'report-print-heading' not in s:
 
 p.write_text(s)
 
+css=Path('src/operations-workspace.css')
+c=css.read_text()
+marker='/* ONE PRO PROFESSIONAL REPORT PRINT */'
+if marker not in c:
+    c += '''\n\n/* ONE PRO PROFESSIONAL REPORT PRINT */\n.report-print-heading{display:none}\n@media print{\n  .report-print-heading{display:block!important;margin:0 0 8mm;padding:0 0 5mm;border-bottom:2px solid #242735;color:#111}\n  .report-print-heading strong{font-size:8pt;letter-spacing:1.4px;color:#6b2b83}\n  .report-print-heading h1{margin:2mm 0 1mm;font-size:22pt;letter-spacing:-.5px}\n  .report-print-heading p{margin:0;font-size:9pt;color:#666}\n  .student-report-list{gap:5mm!important}\n  .student-report{padding:5mm!important;border-radius:3mm!important}\n  .student-mini strong{font-size:11pt!important}.student-mini small{font-size:8pt!important}\n  .report-stats .metric strong{font-size:15pt!important}.report-stats .metric span{font-size:7pt!important}\n}\n'''
+    css.write_text(c)
+
 agents=Path('AGENTS.md')
 a=agents.read_text()
 marker='## Class database, attendance recap, and report-template decisions — 2026-09-17'
