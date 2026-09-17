@@ -88,3 +88,13 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Agenda calendar stays compact, surfaces saved recurring agenda items inside the matching calendar dates, and the selected calendar date must stay synchronized with the agenda list below.
 - Use local calendar dates for agenda selection; do not derive date keys with UTC `toISOString()` when that can shift the visible date in Indonesian time zones.
 - These presentation changes must reuse the existing data model and must not require Supabase schema changes.
+
+## Journal, teacher-class, and AI analysis decisions — 2026-09-17
+
+- PJ Kelompok assigns each Pengajar to a maximum of two active classes through `class_teachers`; Pengajar journal access is limited to assigned classes.
+- Keep two journal modes structurally distinct: `Pengajian / Kelas` records session-level delivery and class conditions, while `Individu Siswa` records per-student target progress, observation, rubric scores, and follow-up. Do not render both modes as the same form.
+- Journal scoring uses rubric version `one-pro-journal-v1`. Class session dimensions are material completion, class engagement, general understanding, and discipline/adab, each on a 1–4 scale. Individual dimensions are target progress, understanding, practice/skill, independence, and participation/adab, each on a 1–4 scale.
+- Individual progress is persisted in `student_progress`, linked to the daily journal and target when available. Historic journal and attendance data must never be deleted by this workflow.
+- Monthly AI analysis must use attendance, class journal entries, individual progress, and targets. The model must never invent facts; insufficient data must be called out explicitly. Persist generated analysis in `reports` and `ai_analyses` with a source hash for repeatability/cache.
+- Monthly AI output should include summary, strengths, attention points, students needing support, concrete next actions, class recommendations, next-month focus, and data-quality status.
+
