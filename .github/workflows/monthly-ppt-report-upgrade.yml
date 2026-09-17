@@ -14,6 +14,7 @@ jobs:
         with:
           fetch-depth: 0
       - run: python scripts/upgrade-monthly-ppt-report.py
+      - run: python scripts/fix-monthly-ppt-build.py
       - run: npm install pptxgenjs@4 jszip@3 --save
       - run: npm run check:runtime
       - run: npm run build
