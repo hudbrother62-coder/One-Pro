@@ -6,4 +6,5 @@ s=s.replace('    deck.theme = { headFontFace: "Aptos Display", bodyFontFace: "Ap
 s=s.replace('      s.addTable(rows, {','      s.addTable(rows as any, {',1)
 s=s.replace(' fill: "FFFFFF", color: TEXT, fontFace: "Aptos", fontSize: 10,', ' fill: { color: "FFFFFF" }, color: TEXT, fontFace: "Aptos", fontSize: 10,',1)
 s=s.replace(' valign: "mid",', ' valign: "middle",',1)
+s=s.replace(' breakLine: false });\n      s.addShape', ' breakLine: false } as any);\n      s.addShape',1)
 p.write_text(s)
