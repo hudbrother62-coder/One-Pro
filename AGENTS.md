@@ -107,3 +107,14 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Admin Daerah sees every Desa in its Daerah and every Kelompok beneath those Desa. Admin Desa sees its parent Daerah and every Kelompok under that Desa. PJ Kelompok/Pengajar sees its parent Desa and Daerah.
 - Direct communication pairs are Daerah–Desa, Daerah–Kelompok, and Desa–Kelompok. Conversations and messages are stored in `org_conversations` and `org_messages`, protected by RLS and refreshed with Supabase Realtime.
 - On mobile, contact list and conversation are separate views with an in-chat back button; on desktop they form a two-column WhatsApp-like workspace.
+
+
+## Class database, attendance recap, and report-template decisions — 2026-09-17
+
+- Database Anak has two views: Database Keseluruhan and Pembagian Kelas. The main student record remains the source of truth.
+- A student may have only one active class enrollment. Moving/removing a student closes the prior `class_enrollments` row with `ended_on`; never delete enrollment history just to change class.
+- PJ Kelompok manages class rosters and the lead Pengajar. A Pengajar can hold at most two classes. Journal and attendance should follow those assignments.
+- Attendance includes daily entry and monthly recap. Monthly recap must show scheduled sessions, completed attendance, journal completion, missing dates, per-student Hadir/Izin/Alpha, and attendance percentage. Past missing dates remain editable.
+- Report UI must not advertise AI. AI may prepare analysis in the background, but user-facing actions are ordinary report actions such as `Cetak`.
+- PPT reports are template-driven, not arbitrary AI slide rewriting. Store `.pptx` templates in the private `report-templates` bucket and map controlled placeholders such as class, month, attendance, summary, strengths, attention points, and recommendations.
+- Accept `.pptx` only, cap template size, preserve template versions, and validate placeholders/layout before automated PPT generation to avoid broken slides or fabricated content.
