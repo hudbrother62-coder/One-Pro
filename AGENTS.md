@@ -111,6 +111,8 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 
 ## Class database, attendance recap, and report-template decisions — 2026-09-17
 
+- Class reports provide a built-in professional ONE PRO Word template (`.docx`) in addition to optional user-uploaded PowerPoint templates. Word output uses the monthly journal analysis internally but never labels the report as AI-generated.
+
 - Calendar visual language uses a restrained surface card, soft selected-cell tint, gradient only on the selected date number, compact agenda chips, and fully themed date/month/time controls; avoid full-cell gradients or native gray browser controls.
 
 - Database Anak has two views: Database Keseluruhan and Pembagian Kelas. The main student record remains the source of truth.
