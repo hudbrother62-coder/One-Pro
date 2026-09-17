@@ -469,7 +469,7 @@ function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage
       <div className="month-calendar"><div className="calendar-weekdays">{["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(d=><span key={d}>{d}</span>)}</div><div className="calendar-grid">{days.map((date) => {
         const key = localDateKey(date);
         const daySchedules = workspace.schedules.filter((item) => item.is_active && item.weekday === date.getDay());
-        return <button key={key} className={cx(activeDate===key&&"active",date.getMonth()!==calendarMonth.getMonth()&&"outside")} onClick={()=>setSelectedDate(key)} aria-label={new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(date)}>
+        return <button key={key} className={cx(activeDate===key&&"active",localDateKey(today)===key&&"today",date.getMonth()!==calendarMonth.getMonth()&&"outside")} onClick={()=>setSelectedDate(key)} aria-label={new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(date)}>
           <span className="calendar-date-number">{date.getDate()}</span>
           {daySchedules.length ? <span className="calendar-agenda-preview">{daySchedules.slice(0,2).map((item) => { const klass = workspace.classes.find((candidate) => candidate.id === item.class_id); return <em key={item.id}>{klass?.name ?? "Agenda"}</em>; })}{daySchedules.length > 2 ? <small>+{daySchedules.length - 2}</small> : null}</span> : null}
         </button>;

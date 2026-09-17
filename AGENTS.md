@@ -111,6 +111,8 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 
 ## Class database, attendance recap, and report-template decisions — 2026-09-17
 
+- Calendar visual language uses a restrained surface card, soft selected-cell tint, gradient only on the selected date number, compact agenda chips, and fully themed date/month/time controls; avoid full-cell gradients or native gray browser controls.
+
 - Database Anak has two views: Database Keseluruhan and Pembagian Kelas. The main student record remains the source of truth.
 - A student may have only one active class enrollment. Moving/removing a student closes the prior `class_enrollments` row with `ended_on`; never delete enrollment history just to change class.
 - PJ Kelompok manages class rosters and the lead Pengajar. A Pengajar can hold at most two classes. Journal and attendance should follow those assignments.
