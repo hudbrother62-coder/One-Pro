@@ -15,6 +15,7 @@ jobs:
           fetch-depth: 0
       - run: python scripts/upgrade-mobile-nav-chat.py
       - run: python scripts/append-mobile-chat-css.py
+      - run: python scripts/fix-chat-cx.py
       - run: npm ci
       - run: npm run check:runtime
       - run: npm run build
