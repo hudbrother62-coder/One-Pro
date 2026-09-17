@@ -4,7 +4,10 @@ import type { User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { createChatThread, deleteSchedule, deleteTarget, emptyWorkspace, loadAccounts, loadAttendanceSummary, loadChat, loadTargets, loadWorkspace, manageAccount, saveAttendance, saveClass, saveDailyJournal, saveSchedule, saveStudent, saveTarget, sendChatMessage, setStudentStatus, type AccountRole, type ChatMessage, type ChatThread, type LoginActivity, type WorkspaceAccount, type WorkspaceData, type WorkspaceStudent, type WorkspaceTarget } from "./lib/data";
 import {
+  ArrowLeft,
   Bell,
+  Buildings,
+  ChatCircleDots,
   CalendarBlank,
   CaretRight,
   ChartLineUp,
@@ -17,8 +20,10 @@ import {
   FilePpt,
   Gear,
   House,
+  List,
   MagnifyingGlass,
   Moon,
+  PaperPlaneTilt,
   PencilSimple,
   Plus,
   SignOut,
@@ -192,10 +197,13 @@ export default function Prototype() {
         <button className="desktop-sidebar-footer logout-link" onClick={() => void signOut()}><SignOut size={18} />Keluar akun</button>
       </aside>
       <header className="topbar">
-        <button className="brand-button" onClick={() => go("home")} aria-label="Buka beranda">
-          <img src="/brand/one-pro-logo.svg" alt="One Pro" />
-          <span><strong>One Pro</strong><small>Jurnal Digital</small></span>
-        </button>
+        <div className="topbar-leading">
+          <button className="mobile-menu-trigger" onClick={() => setMenuOpen(true)} aria-label="Buka navigasi"><List size={22} /></button>
+          <button className="brand-button" onClick={() => go("home")} aria-label="Buka beranda">
+            <img src="/brand/one-pro-logo.svg" alt="One Pro" />
+            <span><strong>One Pro</strong><small>Jurnal Digital</small></span>
+          </button>
+        </div>
         <div className="top-actions">
           <button className="icon-button" onClick={() => setDark((value) => !value)} aria-label={dark ? "Gunakan mode terang" : "Gunakan mode gelap"}>
             {dark ? <Sun size={20} /> : <Moon size={20} />}
@@ -218,7 +226,7 @@ export default function Prototype() {
           {screen === "reports" ? <Reports notify={notify} workspace={workspace} previewMode={previewMode} /> : null}
           {screen === "team" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} /> : null}
           {screen === "admin" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} superView /> : null}
-          {screen === "chat" ? <Chat notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} /> : null}
+          {screen === "chat" ? <Chat notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} /> : null}
           {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => void signOut()} role={role} workspace={workspace} /> : null}
         </main>
       </MobileScroll>
@@ -228,17 +236,20 @@ export default function Prototype() {
           const Icon = item.icon;
           return <button key={item.id} className={cx(screen === item.id && "active")} onClick={() => go(item.id)}><Icon size={21} weight={screen === item.id ? "fill" : "regular"} /><span>{item.label}</span></button>;
         })}
-        <button className={cx(menuOpen && "active")} onClick={() => setMenuOpen(true)}><Gear size={21} /><span>Lainnya</span></button>
+        <button className={cx(menuOpen && "active")} onClick={() => setMenuOpen(true)}><List size={21} /><span>Menu</span></button>
       </nav>
 
-      <BottomSheet open={menuOpen} onOpenChange={setMenuOpen} title="Semua menu" description="Fitur One Pro sesuai akses akun Anda">
-        <div className="menu-grid">
-          {allowedMenuItems.map((item) => {
-            const Icon = item.icon;
-            return <button key={item.id} onClick={() => go(item.id)}><span className="menu-icon"><Icon size={21} /></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><CaretRight size={16} /></button>;
-          })}
-        </div>
-      </BottomSheet>
+      {menuOpen ? <div className="mobile-nav-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
+        <aside className="mobile-nav-drawer" aria-label="Navigasi mobile">
+          <div className="mobile-nav-head">
+            <button className="mobile-nav-brand" onClick={() => go("home")}><span className="desktop-brand-logo"/><span><strong>One Pro</strong><small>Jurnal Digital</small></span></button>
+            <button className="icon-button" onClick={() => setMenuOpen(false)} aria-label="Tutup navigasi"><X size={19}/></button>
+          </div>
+          <div className="mobile-nav-scope"><span>AKSES AKUN</span><strong>{role}</strong><small>Daerah Malang Timur</small></div>
+          <nav className="mobile-nav-list">{allowedNavigation.map((item) => { const Icon=item.icon; return <button key={item.id} className={cx(screen===item.id&&"active")} onClick={() => go(item.id)}><Icon size={20} weight={screen===item.id?"fill":"regular"}/><span>{item.label}</span><CaretRight size={15}/></button>; })}</nav>
+          <button className="mobile-nav-logout" onClick={() => void signOut()}><SignOut size={18}/>Keluar akun</button>
+        </aside>
+      </div> : null}
 
       {toast ? <div className="toast" role="status"><CheckCircle size={20} weight="fill" />{toast}</div> : null}
       {notificationsOpen ? <div className="editor-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setNotificationsOpen(false); }}><section className="editor-panel notification-panel"><div className="editor-head"><div><span className="eyebrow">NOTIFIKASI</span><h2>Pengingat kegiatan</h2></div><button className="icon-button" onClick={() => setNotificationsOpen(false)}><X size={19}/></button></div><div className="card-list"><ActionRow icon={<CalendarBlank size={19}/>} title="Periksa agenda hari ini" meta="Pastikan materi dan jam pengajian sudah diisi" onClick={() => { setNotificationsOpen(false); go("agenda"); }}/><ActionRow icon={<ClipboardText size={19}/>} title="Jurnal belum lengkap" meta="Pengingat dikirim pukul 20.00 pada hari mengaji" onClick={() => { setNotificationsOpen(false); go(allowedIds.includes("journal") ? "journal" : "reports"); }}/></div></section></div> : null}
@@ -754,46 +765,138 @@ function Member({ account, scope, onEdit, onStatus, onDelete }: { account: Works
   return <article className="member-card"><Avatar initials={initials || "U"} muted={!account.is_active} /><span className="member-main"><strong>{account.full_name}</strong><small>@{account.username ?? "belum-diatur"} • {roleLabels[account.role]}</small><em>{scope} • {lastLogin}</em></span><span className={cx("status", account.is_active ? "success" : "warning")}>{account.is_active ? "Aktif" : "Nonaktif"}</span>{account.role !== "super_admin" ? <div className="member-actions"><button onClick={onEdit} aria-label={`Edit ${account.full_name}`}><PencilSimple size={16} /></button><button onClick={onStatus}>{account.is_active ? "Nonaktifkan" : "Aktifkan"}</button><button className="danger" onClick={onDelete} aria-label={`Hapus ${account.full_name}`}><Trash size={16} /></button></div> : null}</article>;
 }
 
-function Chat({ notify, workspace, userId, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean }) {
-  const [threads, setThreads] = useState<ChatThread[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [groupId, setGroupId] = useState("");
-  const [body, setBody] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [loading, setLoading] = useState(false);
+type OrgContactType = "area" | "village" | "group";
+type OrgContact = { type: OrgContactType; id: string; name: string; subtitle: string; initials: string };
+type OrgConversation = { id: string; scope_a_type: OrgContactType; scope_a_id: string; scope_b_type: OrgContactType; scope_b_id: string; updated_at: string };
+type OrgMessage = { id: string; conversation_id: string; sender_id: string; body: string; created_at: string };
+type CurrentScope = { role: AccountRole; area_id: string | null; village_id: string | null; group_id: string | null };
 
-  const refresh = async () => {
-    if (previewMode) return;
-    setLoading(true);
-    try { const result = await loadChat(); setThreads(result.threads); setMessages(result.messages); setSelectedId((current) => current ?? result.threads[0]?.id ?? null); }
-    catch (error) { notify(error instanceof Error ? error.message : "Chat gagal dimuat"); }
-    finally { setLoading(false); }
+function Chat({ notify, workspace, userId, previewMode, role }: { notify: (message: string) => void; workspace: WorkspaceData; userId?: string; previewMode: boolean; role: Role }) {
+  const [scope, setScope] = useState<CurrentScope | null>(null);
+  const [conversations, setConversations] = useState<OrgConversation[]>([]);
+  const [messages, setMessages] = useState<OrgMessage[]>([]);
+  const [selectedContact, setSelectedContact] = useState<OrgContact | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const roleKey: Record<Role, AccountRole> = { "Super Admin": "super_admin", "Admin Daerah": "admin_daerah", "Admin Desa": "admin_desa", "PJ Kelompok": "pj_kelompok", "Pengajar": "pengajar" };
+
+  const refreshChat = async (showLoading = true) => {
+    if (previewMode || !supabase || !userId) return;
+    if (showLoading) setLoading(true);
+    try {
+      const [membershipResult, conversationResult, messageResult] = await Promise.all([
+        supabase.from("memberships").select("role,area_id,village_id,group_id").eq("user_id", userId).eq("role", roleKey[role]).eq("is_active", true).limit(1).maybeSingle(),
+        supabase.from("org_conversations").select("id,scope_a_type,scope_a_id,scope_b_type,scope_b_id,updated_at").order("updated_at", { ascending: false }),
+        supabase.from("org_messages").select("id,conversation_id,sender_id,body,created_at").order("created_at", { ascending: true }),
+      ]);
+      if (membershipResult.error) throw membershipResult.error;
+      if (conversationResult.error) throw conversationResult.error;
+      if (messageResult.error) throw messageResult.error;
+      setScope((membershipResult.data ?? null) as CurrentScope | null);
+      setConversations((conversationResult.data ?? []) as OrgConversation[]);
+      setMessages((messageResult.data ?? []) as OrgMessage[]);
+    } catch (error) { notify(error instanceof Error ? error.message : "Komunikasi gagal dimuat"); }
+    finally { if (showLoading) setLoading(false); }
   };
-  useEffect(() => { void refresh(); }, [previewMode]);
-  const selected = threads.find((thread) => thread.id === selectedId) ?? null;
-  const selectedMessages = messages.filter((message) => message.thread_id === selectedId);
-  const groupName = (id: string | null) => workspace.groups.find((group) => group.id === id)?.name ?? "Percakapan";
-  const create = async () => {
-    if (!userId || !title.trim() || !groupId) return;
-    setCreating(true);
-    try { const id = await createChatThread({ title, groupId, userId }); setTitle(""); setCreating(false); notify("Percakapan dibuat"); await refresh(); setSelectedId(id); }
-    catch (error) { setCreating(false); notify(error instanceof Error ? error.message : "Percakapan gagal dibuat"); }
+
+  useEffect(() => {
+    if (previewMode) {
+      setScope({ role: roleKey[role], area_id: workspace.areas[0]?.id ?? "demo-area", village_id: workspace.villages[0]?.id ?? "demo-village", group_id: workspace.groups[0]?.id ?? "demo-group" });
+      return;
+    }
+    void refreshChat();
+  }, [previewMode, userId, role]);
+
+  useEffect(() => {
+    if (previewMode || !supabase || !userId) return;
+    const channel = supabase.channel(`one-pro-org-chat-${userId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "org_messages" }, () => { void refreshChat(false); }).subscribe();
+    return () => { void supabase?.removeChannel(channel); };
+  }, [previewMode, userId, role]);
+
+  const contacts = useMemo<OrgContact[]>(() => {
+    if (!scope) return [];
+    const make = (type: OrgContactType, id: string, name: string, subtitle: string): OrgContact => ({ type, id, name, subtitle, initials: name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join("").toUpperCase() || "OP" });
+    if (role === "Admin Daerah") {
+      const villages = workspace.villages.filter(v => !scope.area_id || v.area_id === scope.area_id);
+      const villageIds = new Set(villages.map(v => v.id));
+      return [
+        ...villages.map(v => make("village", v.id, `Desa ${v.name}`, "Admin Desa")),
+        ...workspace.groups.filter(g => villageIds.has(g.village_id)).map(g => make("group", g.id, `Kelompok ${g.name}`, "PJ Kelompok")),
+      ];
+    }
+    if (role === "Admin Desa") {
+      const village = workspace.villages.find(v => v.id === scope.village_id);
+      const area = village ? workspace.areas.find(a => a.id === village.area_id) : null;
+      return [
+        ...(area ? [make("area", area.id, `Daerah ${area.name}`, "Admin Daerah")] : []),
+        ...workspace.groups.filter(g => g.village_id === scope.village_id).map(g => make("group", g.id, `Kelompok ${g.name}`, "PJ Kelompok")),
+      ];
+    }
+    if (role === "PJ Kelompok" || role === "Pengajar") {
+      const group = workspace.groups.find(g => g.id === scope.group_id);
+      const village = group ? workspace.villages.find(v => v.id === group.village_id) : null;
+      const area = village ? workspace.areas.find(a => a.id === village.area_id) : null;
+      return [
+        ...(area ? [make("area", area.id, `Daerah ${area.name}`, "Admin Daerah")] : []),
+        ...(village ? [make("village", village.id, `Desa ${village.name}`, "Admin Desa")] : []),
+      ];
+    }
+    return [];
+  }, [scope, role, workspace.areas, workspace.villages, workspace.groups]);
+
+  const visibleContacts = contacts.filter(contact => `${contact.name} ${contact.subtitle}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const conversationFor = (contact: OrgContact) => conversations.find(c => (c.scope_a_type === contact.type && c.scope_a_id === contact.id) || (c.scope_b_type === contact.type && c.scope_b_id === contact.id));
+  const latestFor = (contact: OrgContact) => {
+    const conversation = conversationFor(contact);
+    if (!conversation) return null;
+    const rows = messages.filter(message => message.conversation_id === conversation.id);
+    return rows[rows.length - 1] ?? null;
   };
+  const selectedMessages = selectedConversationId ? messages.filter(message => message.conversation_id === selectedConversationId) : [];
+
+  const openContact = async (contact: OrgContact) => {
+    setSelectedContact(contact);
+    if (previewMode) { setSelectedConversationId(`preview-${contact.type}-${contact.id}`); return; }
+    if (!supabase) return;
+    const existing = conversationFor(contact);
+    if (existing) { setSelectedConversationId(existing.id); return; }
+    const { data, error } = await supabase.rpc("open_org_conversation", { p_target_type: contact.type, p_target_id: contact.id });
+    if (error || !data) { notify(error?.message || "Percakapan tidak dapat dibuka"); return; }
+    setSelectedConversationId(String(data));
+    await refreshChat(false);
+  };
+
   const send = async () => {
-    if (!userId || !selectedId || !body.trim()) return;
-    try { await sendChatMessage({ threadId: selectedId, userId, body }); setBody(""); await refresh(); }
-    catch (error) { notify(error instanceof Error ? error.message : "Pesan gagal dikirim"); }
+    const clean = body.trim();
+    if (!clean || !selectedConversationId || !userId || sending) return;
+    if (previewMode) { setBody(""); notify("Mode pratinjau: pesan siap dikirim pada akun nyata"); return; }
+    if (!supabase) return;
+    setSending(true);
+    const { error } = await supabase.from("org_messages").insert({ conversation_id: selectedConversationId, sender_id: userId, body: clean });
+    setSending(false);
+    if (error) { notify(error.message); return; }
+    setBody("");
+    await refreshChat(false);
   };
-  if (previewMode) return <><PageHeader title="Komunikasi" subtitle="Preview data chat" /><div className="chat-list"><ChatRow initials="MT" title="Daerah Malang Timur" message="Mohon lengkapi jurnal bulanan sebelum Jumat." time="19.12" unread="2" /><ChatRow initials="DM" title="Desa Mangliawan" message="Jadwal musyawarah sudah diperbarui." time="17.30" /></div></>;
+
   return <>
-    <PageHeader title="Komunikasi" subtitle="Daerah, desa, dan kelompok" action={<button className="primary-icon" onClick={() => setCreating(true)} aria-label="Buat percakapan"><Plus size={20} /></button>} />
-    <div className="chat-layout">
-      <div className="chat-list">{loading ? <div className="chat-empty">Memuat percakapan…</div> : threads.length ? threads.map((thread) => <button key={thread.id} className={cx("chat-row", selectedId === thread.id && "active")} onClick={() => setSelectedId(thread.id)}><Avatar initials={groupName(thread.group_id).slice(0, 2).toUpperCase()} /><span><strong>{thread.title ?? groupName(thread.group_id)}</strong><small>{groupName(thread.group_id)}</small></span><em>{new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short" }).format(new Date(thread.created_at))}</em></button>) : <div className="chat-empty">Belum ada percakapan. Buat percakapan untuk mulai berkomunikasi.</div>}</div>
-      <section className="chat-thread">{selected ? <><div className="chat-thread-head"><strong>{selected.title ?? groupName(selected.group_id)}</strong><small>{groupName(selected.group_id)}</small></div><div className="chat-messages">{selectedMessages.length ? selectedMessages.map((message) => <div key={message.id} className={cx("chat-message", message.sender_id === userId && "mine")}><p>{message.body}</p><small>{new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))}</small></div>) : <div className="chat-empty">Belum ada pesan.</div>}</div><div className="chat-composer"><KeyboardInput value={body} onChange={(event) => setBody(event.target.value)} placeholder="Tulis pesan…" onKeyDown={(event) => { if (event.key === "Enter") void send(); }} /><button className="primary-icon" onClick={() => void send()} aria-label="Kirim pesan"><CaretRight size={20} /></button></div></> : <div className="chat-empty">Pilih percakapan di sebelah kiri.</div>}</section>
-    </div>
-    {creating ? <div className="editor-overlay" role="dialog" aria-modal="true"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">CHAT BARU</span><h2>Buat percakapan</h2></div><button className="icon-button" onClick={() => setCreating(false)} aria-label="Tutup"><X size={19} /></button></div><label className="field"><span>Judul</span><KeyboardInput value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Contoh: Koordinasi jurnal" /></label><label className="field"><span>Kelompok</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)}><option value="">Pilih kelompok</option>{workspace.groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label><button className="primary-button" disabled={creating || !title.trim() || !groupId} onClick={() => void create()}>{creating ? "Menyimpan…" : "Buat percakapan"}</button></section></div> : null}
+    <PageHeader title="Komunikasi" subtitle="Chat langsung antara Daerah, Desa, dan Kelompok" />
+    <section className={cx("org-chat-shell", Boolean(selectedContact) && "has-selection")}>
+      <aside className="org-contact-pane">
+        <div className="org-contact-head"><div><ChatCircleDots size={21}/><span><strong>Kontak</strong><small>{contacts.length} unit tersedia</small></span></div></div>
+        <label className="org-chat-search"><MagnifyingGlass size={16}/><KeyboardInput value={query} onChange={event => setQuery(event.target.value)} placeholder="Cari desa atau kelompok"/></label>
+        <div className="org-contact-list">{loading ? <div className="chat-empty">Memuat kontak…</div> : visibleContacts.length ? visibleContacts.map(contact => { const latest=latestFor(contact); const conversation=conversationFor(contact); return <button key={`${contact.type}-${contact.id}`} className={cx("org-contact-row",selectedContact?.type===contact.type&&selectedContact.id===contact.id&&"active")} onClick={() => void openContact(contact)}><span className="org-contact-avatar"><Buildings size={18}/></span><span className="org-contact-copy"><strong>{contact.name}</strong><small>{latest?.body || contact.subtitle}</small></span><em>{latest ? new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit"}).format(new Date(latest.created_at)) : conversation ? "Aktif" : ""}</em></button>; }) : <div className="chat-empty">Tidak ada kontak pada lingkup akun ini.</div>}</div>
+      </aside>
+      <div className="org-conversation-pane">{selectedContact ? <>
+        <header className="org-conversation-head"><button className="org-chat-back" onClick={() => { setSelectedContact(null); setSelectedConversationId(null); }} aria-label="Kembali ke kontak"><ArrowLeft size={20}/></button><span className="org-contact-avatar"><Buildings size={18}/></span><div><strong>{selectedContact.name}</strong><small>{selectedContact.subtitle} · online melalui One Pro</small></div></header>
+        <div className="org-message-scroll">{selectedMessages.length ? selectedMessages.map(message => <article key={message.id} className={cx("org-bubble",message.sender_id===userId&&"mine")}><p>{message.body}</p><small>{message.sender_id===userId?"Anda · ":""}{new Intl.DateTimeFormat("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(message.created_at))}</small></article>) : <div className="org-chat-welcome"><ChatCircleDots size={30}/><strong>Mulai percakapan</strong><p>Pesan ini langsung tersimpan di ONE PRO dan dapat dibalas oleh {selectedContact.name}.</p></div>}</div>
+        <div className="org-chat-composer"><KeyboardInput value={body} onChange={event=>setBody(event.target.value)} placeholder={`Pesan ke ${selectedContact.name}`} onKeyDown={event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();void send();}}}/><button disabled={sending||!body.trim()} onClick={()=>void send()} aria-label="Kirim pesan"><PaperPlaneTilt size={19} weight="fill"/></button></div>
+      </> : <div className="org-chat-placeholder"><ChatCircleDots size={38}/><h2>Pilih kontak</h2><p>Pilih Daerah, Desa, atau Kelompok di sebelah kiri untuk membuka percakapan langsung.</p></div>}</div>
+    </section>
   </>;
 }
 

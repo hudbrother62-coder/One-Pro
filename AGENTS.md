@@ -98,3 +98,12 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Monthly AI analysis must use attendance, class journal entries, individual progress, and targets. The model must never invent facts; insufficient data must be called out explicitly. Persist generated analysis in `reports` and `ai_analyses` with a source hash for repeatability/cache.
 - Monthly AI output should include summary, strengths, attention points, students needing support, concrete next actions, class recommendations, next-month focus, and data-quality status.
 
+
+
+## Mobile navigation and organizational chat decisions — 2026-09-17
+
+- Mobile uses a left-side navigation drawer opened from the top bar and the bottom Menu action. The drawer mirrors role-allowed desktop navigation and includes logout. Keep desktop sidebar behavior unchanged.
+- Communication is contact-first, not thread-creation-first. Users never type a chat title or manually create a group thread. Contacts are derived from the organization hierarchy.
+- Admin Daerah sees every Desa in its Daerah and every Kelompok beneath those Desa. Admin Desa sees its parent Daerah and every Kelompok under that Desa. PJ Kelompok/Pengajar sees its parent Desa and Daerah.
+- Direct communication pairs are Daerah–Desa, Daerah–Kelompok, and Desa–Kelompok. Conversations and messages are stored in `org_conversations` and `org_messages`, protected by RLS and refreshed with Supabase Realtime.
+- On mobile, contact list and conversation are separate views with an in-chat back button; on desktop they form a two-column WhatsApp-like workspace.
