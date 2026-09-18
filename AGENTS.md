@@ -164,3 +164,12 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Admin Daerah/Admin Desa operational monitoring must be explicitly scoped before rendering detail. Use Kelompok → Kelas for Agenda, Presensi, Jurnal, Laporan, Database Anak, and Pembagian Kelas. Do not render a universal mixed calendar/report across multiple groups.
 - Agenda calendar is class-specific after a group/class is selected; schedules from other groups/classes must not appear in calendar cells or the selected-date list.
 - Mobile production uses browser-native touch scrolling for ordinary pages. App content opts out of simulated pointer-drag physics using data-scroll-drag=ignore while the underlying mobile scroll container uses native touch-action. Keep independent vertical scroll only for drawers, dialogs, chat panes, and other true overlays. Horizontal scrolling remains allowed for true wide/table/selector regions.
+
+
+## Schedule recurrence decisions — 2026-09-18
+
+- Agenda supports two schedule types: weekly recurring and one-time by exact date. Existing schedules default to weekly so historical behavior remains intact.
+- A weekly schedule repeats on its selected weekday. A one-time schedule appears only on its stored date.
+- Weekly schedules may have date-specific exceptions for holidays/cancellations. An exception hides only that occurrence and must not disable or modify the recurring series. Users with operational permission can restore an exception.
+- Every active schedule entry exposed to PJ Kelompok must provide Edit and Delete. Weekly entries additionally provide a per-date “skip this date” action. Deleting a weekly schedule disables the whole recurring series; deleting a one-time schedule disables only that event.
+- Regional Admin roles continue to monitor Agenda read-only after selecting Kelompok → Kelas.
