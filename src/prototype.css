@@ -1057,3 +1057,110 @@ button { -webkit-tap-highlight-color: transparent; }
     grid-row:2;
   }
 }
+/* ONE PRO DATA SCROLL SYSTEM — 2026-09-18 */
+/* Long collections never clip or grow uncontrollably. Scrollbars stay visible, subtle, and theme-aware. */
+.one-pro-shell{
+  --scroll-thumb:color-mix(in srgb,var(--muted) 34%,transparent);
+  --scroll-thumb-hover:color-mix(in srgb,var(--muted) 52%,transparent);
+}
+.one-pro-shell.is-dark{
+  --scroll-thumb:color-mix(in srgb,var(--muted) 42%,transparent);
+  --scroll-thumb-hover:color-mix(in srgb,var(--muted) 62%,transparent);
+}
+.one-pro-shell :where(
+  .desktop-nav,.mobile-nav-list,.editor-panel,
+  .action-list,.student-list,.team-list,.target-list,.village-list,.card-list,
+  .attendance-list,.student-report-list,.schedule-list.compact,
+  .org-contact-list,.org-message-scroll
+){
+  scrollbar-width:thin;
+  scrollbar-color:var(--scroll-thumb) transparent;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.one-pro-shell :where(
+  .desktop-nav,.mobile-nav-list,.editor-panel,
+  .action-list,.student-list,.team-list,.target-list,.village-list,.card-list,
+  .attendance-list,.student-report-list,.schedule-list.compact,
+  .org-contact-list,.org-message-scroll
+)::-webkit-scrollbar{width:7px;height:7px}
+.one-pro-shell :where(
+  .desktop-nav,.mobile-nav-list,.editor-panel,
+  .action-list,.student-list,.team-list,.target-list,.village-list,.card-list,
+  .attendance-list,.student-report-list,.schedule-list.compact,
+  .org-contact-list,.org-message-scroll
+)::-webkit-scrollbar-track{background:transparent}
+.one-pro-shell :where(
+  .desktop-nav,.mobile-nav-list,.editor-panel,
+  .action-list,.student-list,.team-list,.target-list,.village-list,.card-list,
+  .attendance-list,.student-report-list,.schedule-list.compact,
+  .org-contact-list,.org-message-scroll
+)::-webkit-scrollbar-thumb{
+  border-radius:999px;
+  background:var(--scroll-thumb);
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+.one-pro-shell :where(
+  .desktop-nav,.mobile-nav-list,.editor-panel,
+  .action-list,.student-list,.team-list,.target-list,.village-list,.card-list,
+  .attendance-list,.student-report-list,.schedule-list.compact,
+  .org-contact-list,.org-message-scroll
+)::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover);background-clip:padding-box}
+
+/* Navigation always remains scrollable when a role exposes many menus. */
+.desktop-nav,.mobile-nav-list{min-height:0;overflow-y:auto!important;overflow-x:hidden!important}
+.desktop-nav{flex:1 1 auto}
+.mobile-nav-list{flex:1 1 auto}
+
+/* Data-heavy collections get a bounded viewport on desktop. */
+@media(min-width:900px){
+  .screen-students .student-list,
+  .screen-targets .target-list,
+  .screen-team .team-list,
+  .screen-team .card-list,
+  .screen-admin .team-list,
+  .screen-admin .card-list,
+  .screen-reports .student-report-list,
+  .attendance-list{
+    max-height:min(66dvh,720px);
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    padding-right:3px;
+  }
+  .screen-agenda .card-list,
+  .screen-home .action-list,
+  .screen-home .village-list{
+    max-height:min(52dvh,560px);
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+  .schedule-list.compact{
+    max-height:min(54dvh,580px);
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+}
+
+/* On phones the whole page still scrolls naturally, but explicitly scrollable subviews remain safe. */
+@media(max-width:899px){
+  .student-list,.team-list,.target-list,.village-list,.action-list,.student-report-list,.attendance-list{
+    max-height:none;
+    overflow:visible;
+  }
+  .org-contact-list,.org-message-scroll{
+    overflow-y:auto!important;
+  }
+  .mobile-nav-list{overflow-y:auto!important}
+}
+
+/* Horizontal overflow is never allowed to force the page wider than the device. */
+.one-pro-shell :where(.toolbar,.split-actions,.chip-row,.filter-pills,.report-actions){
+  max-width:100%;
+}
+.chip-row,.filter-pills{
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:var(--scroll-thumb) transparent!important;
+}
