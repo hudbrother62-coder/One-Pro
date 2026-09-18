@@ -54,3 +54,7 @@
 
 /* REPORT REGION FILTER POLISH */
 .report-region-filter{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+/* REGION SCOPE NOTE — 2026-09-18 */
+.region-scope-note{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+.region-scope-note strong{font-size:10px}.region-scope-note span{font-size:8px;color:var(--muted);text-align:right}
+@media(max-width:560px){.region-scope-note{align-items:flex-start;flex-direction:column}.region-scope-note span{text-align:left}}
