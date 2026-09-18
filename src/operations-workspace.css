@@ -159,3 +159,23 @@
   }
   .class-card-list>button{scroll-snap-align:start}
 }
+/* REGIONAL OPERATIONS SCOPE FILTER — 2026-09-18 */
+.ops-scope-filter{
+  display:grid;
+  grid-template-columns:minmax(220px,1fr) minmax(220px,1fr);
+  gap:10px;
+  padding:14px;
+  margin-bottom:14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface);
+}
+.ops-scope-filter label{display:grid;gap:6px}
+.ops-scope-filter label>span,.ops-scope-filter>div>span{color:var(--muted);font-size:9px;font-weight:800}
+.ops-scope-filter select{min-height:43px;width:100%;padding:0 11px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--text)}
+.ops-scope-filter>div{display:grid;align-content:center;gap:2px;padding:9px 11px;border-radius:11px;background:var(--surface-2)}
+.ops-scope-filter>div strong{font-size:11px}.ops-scope-filter>div small{font-size:8px;color:var(--muted)}
+.attendance-recap-filters{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))!important}
+@media(max-width:760px){
+  .ops-scope-filter{grid-template-columns:1fr;padding:12px}
+}
