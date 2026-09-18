@@ -139,3 +139,17 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 
 - Any navigation or data collection that can grow substantially must remain scrollable instead of clipping or stretching the layout without bound. This includes desktop/mobile navigation, student/team/target lists, class rosters, attendance entry and recap, report lists, journal student assessments, AI result detail, agenda lists, chat contacts/messages, and long modals.
 - Use vertical scrolling for long collections, horizontal scrolling only for genuine wide table-like content, and preserve natural page scrolling on mobile outside bounded high-density regions. Use themed thin scrollbars and overscroll containment.
+
+
+## Regional admin monitoring decisions — 2026-09-18
+
+- Admin Daerah and Admin Desa are monitoring/coordination layers, not operational data-entry roles. They may read scoped students, classes, schedules, attendance, journals, individual progress, reports, targets, accounts, and organizational chat, but attendance/journal/student/class/schedule mutations remain with PJ Kelompok or assigned Pengajar as appropriate.
+- Admin Daerah scope is limited to its own Daerah and drills down Desa → Kelompok → Kelas. Admin Desa scope is limited to its own Desa and drills down Kelompok → Kelas. RLS is the authority; UI hiding alone is insufficient.
+- Regional dashboards must use live scoped data, never hardcoded attendance/progress percentages. Show current-month attendance, journal completeness, unit counts, incomplete-data alerts, and students needing monitoring only when sufficient records exist.
+- Admin Daerah can add/edit Desa and Kelompok in its Daerah. Admin Desa can add/edit Kelompok only in its Desa. Do not expose destructive delete for hierarchy units because operational history references them.
+- Regional Presensi and Jurnal screens are read-only monitoring views. PJ Kelompok/Pengajar continue to submit operational records.
+- Regional Database Anak is read-only. Student and class roster changes remain PJ Kelompok responsibilities.
+- Targets are managed by Admin Daerah and read-only below that level.
+- Regional reports remain month-first and add hierarchy filters: Admin Daerah can filter Desa → Kelompok → Kelas; Admin Desa can filter Kelompok → Kelas. Word/PPT generation requires one selected class for class reports.
+- Tim & Akses follows hierarchical delegation: Admin Daerah manages Admin Desa/PJ/Pengajar within its Daerah; Admin Desa manages PJ/Pengajar within its Desa; PJ manages Pengajar within its Kelompok.
+- Communication remains contact-first and two-way only across related hierarchy scopes; conversation opening and message access must remain RLS-protected.
