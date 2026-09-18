@@ -154,3 +154,13 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Regional reports remain month-first and add hierarchy filters: Admin Daerah can filter Desa → Kelompok → Kelas; Admin Desa can filter Kelompok → Kelas. Word/PPT generation requires one selected class for class reports.
 - Tim & Akses follows hierarchical delegation: Admin Daerah manages Admin Desa/PJ/Pengajar within its Daerah; Admin Desa manages PJ/Pengajar within its Desa; PJ manages Pengajar within its Kelompok.
 - Communication remains contact-first and two-way only across related hierarchy scopes; conversation opening and message access must remain RLS-protected.
+
+
+## Super Admin, scoped monitoring, and mobile scroll — 2026-09-18
+
+- Super Admin navigation is Beranda, Super Admin (accounts/access), AI Sistem, and Informasi. Do not show the normal Pengaturan screen to Super Admin.
+- AI Sistem is Super-Admin-only and may answer about application architecture, role behavior, system health, hierarchy, and aggregate operational metrics. Do not send raw personal journal notes, addresses, phone numbers, passwords, tokens, service keys, or internal auth emails to the AI provider.
+- Informasi is the human-readable system information screen: public production URL, stack, scoped counts, role responsibilities, and connection/security model.
+- Admin Daerah/Admin Desa operational monitoring must be explicitly scoped before rendering detail. Use Kelompok → Kelas for Agenda, Presensi, Jurnal, Laporan, Database Anak, and Pembagian Kelas. Do not render a universal mixed calendar/report across multiple groups.
+- Agenda calendar is class-specific after a group/class is selected; schedules from other groups/classes must not appear in calendar cells or the selected-date list.
+- Mobile production uses browser-native touch scrolling for ordinary pages. App content opts out of simulated pointer-drag physics using data-scroll-drag=ignore while the underlying mobile scroll container uses native touch-action. Keep independent vertical scroll only for drawers, dialogs, chat panes, and other true overlays. Horizontal scrolling remains allowed for true wide/table/selector regions.
