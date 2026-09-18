@@ -155,43 +155,47 @@ export default function Prototype() {
 
   useEffect(() => {
     if (!supabase || !authUser || previewMode) return;
+    const client = supabase;
+    const currentUserId = authUser.id;
     let active = true;
     setAccessReady(false);
-    const timeout = window.setTimeout(() => {
+
+    const forceBackToLogin = async (message: string) => {
       if (!active) return;
-      setLoginMessage("Koneksi akun terlalu lama. Silakan masuk kembali.");
+      setLoginMessage(message);
       setAuthUser(null);
       setAccessReady(false);
-      void supabase.auth.signOut().catch(console.error);
+      try { await client.auth.signOut(); } catch (error) { console.warn("Sign out fallback:", error); }
+    };
+
+    const timeout = window.setTimeout(() => {
+      void forceBackToLogin("Koneksi akun terlalu lama. Silakan masuk kembali.");
     }, 8000);
 
-    void supabase.from("memberships").select("role").eq("user_id", authUser.id).eq("is_active", true).limit(1).maybeSingle()
-      .then(async ({ data, error }) => {
+    void (async () => {
+      try {
+        const { data, error } = await client.from("memberships").select("role").eq("user_id", currentUserId).eq("is_active", true).limit(1).maybeSingle();
         if (!active) return;
         window.clearTimeout(timeout);
         const roles: Record<string, Role> = { super_admin: "Super Admin", admin_daerah: "Admin Daerah", admin_desa: "Admin Desa", pj_kelompok: "PJ Kelompok", pengajar: "Pengajar" };
         if (error || !data?.role || !roles[data.role]) {
-          setLoginMessage("Akun tidak aktif atau belum memiliki akses. Hubungi Super Admin.");
-          setAuthUser(null);
-          await supabase.auth.signOut().catch(console.error);
+          await forceBackToLogin("Akun tidak aktif atau belum memiliki akses. Hubungi Super Admin.");
           return;
         }
         setRole(roles[data.role]);
         setAccessReady(true);
-        const marker = `one-pro-login-${authUser.id}`;
+        const marker = `one-pro-login-${currentUserId}`;
         if (!sessionStorage.getItem(marker)) {
           sessionStorage.setItem(marker, "1");
           void manageAccount({ action: "record-login" }).catch(console.error);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         if (!active) return;
         window.clearTimeout(timeout);
         console.error("Membership bootstrap:", error);
-        setLoginMessage("Akses akun gagal diperiksa. Silakan masuk kembali.");
-        setAuthUser(null);
-        void supabase.auth.signOut().catch(console.error);
-      });
+        await forceBackToLogin("Akses akun gagal diperiksa. Silakan masuk kembali.");
+      }
+    })();
 
     return () => {
       active = false;
