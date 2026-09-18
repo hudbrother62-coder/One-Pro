@@ -124,3 +124,12 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Report UI must not advertise AI. AI may prepare analysis in the background, but user-facing actions are ordinary report actions such as `Cetak`.
 - PPT reports are template-driven, not arbitrary AI slide rewriting. Store `.pptx` templates in the private `report-templates` bucket and map controlled placeholders such as class, month, attendance, summary, strengths, attention points, and recommendations.
 - Accept `.pptx` only, cap template size, preserve template versions, and validate placeholders/layout before automated PPT generation to avoid broken slides or fabricated content.
+
+
+## Visual system decisions — 2026-09-18
+
+- ONE PRO uses one restrained visual system across dashboard, agenda, journal, database/class assignment, attendance, reports, communication, team, targets, and settings. Keep purposeful purple/blue accents; avoid full-card gradients and heavy shadows.
+- Desktop prioritizes readable 12–14px operational text, a centered content width around 1220px, calm flat surfaces, subtle active navigation, and compact action groups instead of full-width secondary buttons.
+- Mobile preserves 44px-class touch targets, left navigation drawer plus quick bottom navigation, readable text, one-column forms, compact calendar cells, and horizontally scrollable data only where a true table cannot fit.
+- Reuse the same border, radius, spacing, field, tab, button, card, and empty-state language across every feature. Strong elevation is reserved for floating overlays, drawers, modals, and toasts.
+- On report screens, month/class selection is visually primary; Word and PPT outputs form a matched pair on desktop and stack on mobile.
