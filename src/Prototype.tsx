@@ -1058,7 +1058,7 @@ function AuthScreen({ ready, externalMessage, clearExternalMessage }: { ready: b
     if (result.error) setMessage("Username atau password salah.");
   };
 
-  return <main className="auth-screen">
+  return <main className="auth-screen" data-scroll-drag="ignore">
     <section className="auth-brand"><span className="auth-logo" /><div><strong>One Pro</strong><small>Jurnal Digital</small></div></section>
     <section className="auth-card">
       <span className="eyebrow">MALANG TIMUR</span>
