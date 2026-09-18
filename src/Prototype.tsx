@@ -42,8 +42,9 @@ import { JournalWorkspace, MonthlyAiAnalysis, TeacherClassAssignmentPanel } from
 import { AttendanceWorkspace, PptTemplateManager, StudentDatabaseHub } from "./operations-workspace";
 import { ProfessionalWordReport } from "./word-report";
 import { ProfessionalPptReport } from "./ppt-report";
+import { RegionalJournalMonitor, RegionalMonitoringHome, RegionStructureManager } from "./region-monitoring";
 
-type Screen = "home" | "agenda" | "attendance" | "journal" | "students" | "targets" | "reports" | "team" | "chat" | "settings" | "admin";
+type Screen = "home" | "agenda" | "attendance" | "journal" | "students" | "targets" | "reports" | "team" | "chat" | "settings" | "region" | "admin";
 type Role = "Pengajar" | "PJ Kelompok" | "Admin Desa" | "Admin Daerah" | "Super Admin";
 type Attendance = "H" | "I" | "A";
 
@@ -58,6 +59,7 @@ const menuItems: { id: Screen; label: string; icon: typeof House; hint: string }
   { id: "journal", label: "Jurnal", icon: ClipboardText, hint: "Harian dan bulanan" },
   { id: "students", label: "Database Anak", icon: Database, hint: "Data, foto, dan kelas" },
   { id: "targets", label: "Target", icon: Target, hint: "Target tiap jenjang" },
+  { id: "region", label: "Wilayah", icon: Buildings, hint: "Desa dan kelompok" },
   { id: "team", label: "Tim & Akses", icon: Users, hint: "Anggota dan login" },
   { id: "chat", label: "Komunikasi", icon: Bell, hint: "Chat dan pengumuman" },
   { id: "settings", label: "Pengaturan", icon: Gear, hint: "Profil, AI, dan tema" },
@@ -173,8 +175,8 @@ export default function Prototype() {
 
   const roleScreens: Record<Role, Screen[]> = {
     "Super Admin": ["home", "admin", "settings"],
-    "Admin Daerah": ["home", "agenda", "reports", "students", "targets", "team", "chat", "settings"],
-    "Admin Desa": ["home", "agenda", "reports", "students", "targets", "team", "chat", "settings"],
+    "Admin Daerah": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "region", "team", "chat", "settings"],
+    "Admin Desa": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "region", "team", "chat", "settings"],
     "PJ Kelompok": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "team", "chat", "settings"],
     "Pengajar": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "chat", "settings"],
   };
@@ -220,13 +222,14 @@ export default function Prototype() {
       <MobileScroll className="app-screen">
         <main className={cx("screen-content", `screen-${screen}`)} data-testid="one-pro-app">
           {dataState === "loading" ? <div className="data-sync" role="status">Menyinkronkan data…</div> : null}
-          {screen === "home" ? role === "Super Admin" ? <SuperAdminHome go={go} /> : <Home role={role} setRole={setRole} go={go} previewMode={previewMode} workspace={workspace} /> : null}
+          {screen === "home" ? role === "Super Admin" ? <SuperAdminHome go={go} /> : <Home role={role} setRole={setRole} go={go} previewMode={previewMode} workspace={workspace} notify={notify} /> : null}
           {screen === "agenda" ? <Agenda notify={notify} go={go} workspace={workspace} refresh={refreshWorkspace} userId={authUser?.id} previewMode={previewMode} canManage={role === "PJ Kelompok"} /> : null}
           {screen === "attendance" ? <AttendanceWorkspace notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} /> : null}
-          {screen === "journal" ? <JournalWorkspace notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} /> : null}
-          {screen === "students" ? <StudentDatabaseHub notify={notify} workspace={workspace} refresh={refreshWorkspace} role={role} previewMode={previewMode}><Students notify={notify} workspace={workspace} refresh={refreshWorkspace} previewMode={previewMode} /></StudentDatabaseHub> : null}
+          {screen === "journal" ? (role === "Admin Daerah" || role === "Admin Desa" ? <RegionalJournalMonitor notify={notify} workspace={workspace} previewMode={previewMode} role={role} /> : <JournalWorkspace notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} />) : null}
+          {screen === "students" ? <StudentDatabaseHub notify={notify} workspace={workspace} refresh={refreshWorkspace} role={role} previewMode={previewMode}><Students notify={notify} workspace={workspace} refresh={refreshWorkspace} previewMode={previewMode} role={role} /></StudentDatabaseHub> : null}
           {screen === "targets" ? <Targets notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} canManage={role === "Admin Daerah"} /> : null}
           {screen === "reports" ? <Reports notify={notify} workspace={workspace} previewMode={previewMode} /> : null}
+          {screen === "region" && (role === "Admin Daerah" || role === "Admin Desa") ? <RegionStructureManager notify={notify} workspace={workspace} refresh={refreshWorkspace} role={role} previewMode={previewMode} /> : null}
           {screen === "team" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} /> : null}
           {screen === "admin" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} superView /> : null}
           {screen === "chat" ? <Chat notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} /> : null}
@@ -275,7 +278,7 @@ function SuperAdminHome({ go }: { go: (screen: Screen) => void }) {
   </>;
 }
 
-function Home({ role, setRole, go, previewMode, workspace }: { role: Role; setRole: (role: Role) => void; go: (screen: Screen) => void; previewMode: boolean; workspace: WorkspaceData }) {
+function Home({ role, setRole, go, previewMode, workspace, notify }: { role: Role; setRole: (role: Role) => void; go: (screen: Screen) => void; previewMode: boolean; workspace: WorkspaceData; notify: (message: string) => void }) {
   return <>
     <div className="context-row">
       <div><span className="eyebrow">MALANG TIMUR</span><h1>{role === "Pengajar" ? "Kelas hari ini" : role === "PJ Kelompok" ? "Mangliawan Utara" : "Pantauan wilayah"}</h1></div>
@@ -284,7 +287,7 @@ function Home({ role, setRole, go, previewMode, workspace }: { role: Role; setRo
       </select> : <span className="role-badge">{role}</span>}
     </div>
 
-    {role === "Pengajar" || role === "PJ Kelompok" ? <OperationalHome go={go} workspace={workspace} previewMode={previewMode} /> : <MonitoringHome role={role} go={go} workspace={workspace} previewMode={previewMode} />}
+    {role === "Pengajar" || role === "PJ Kelompok" ? <OperationalHome go={go} workspace={workspace} previewMode={previewMode} /> : (role === "Admin Daerah" || role === "Admin Desa" ? <RegionalMonitoringHome role={role} go={go} workspace={workspace} previewMode={previewMode} notify={notify} /> : null)}
   </>;
 }
 
@@ -551,7 +554,7 @@ function Journal({ notify, workspace, userId, previewMode }: { notify: (message:
   </>;
 }
 
-function Students({ notify, workspace, refresh, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; refresh: () => Promise<void>; previewMode: boolean }) {
+function Students({ notify, workspace, refresh, previewMode, role }: { notify: (message: string) => void; workspace: WorkspaceData; refresh: () => Promise<void>; previewMode: boolean; role: Role }) {
   const [showPhotos, setShowPhotos] = useState(true);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<WorkspaceStudent | "new" | null>(null);
