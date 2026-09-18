@@ -182,8 +182,9 @@ export function RegionalMonitoringHome({ role, workspace, previewMode, go, notif
 
 export function RegionalJournalMonitor({ workspace, role, previewMode, notify }: { workspace: WorkspaceData; role: Role; previewMode: boolean; notify: Notify }) {
   const [month, setMonth] = useState(monthKey());
-  const [groupId, setGroupId] = useState("all");
-  const [classId, setClassId] = useState("all");
+  const [groupId, setGroupId] = useState(workspace.groups[0]?.id ?? "");
+  const visibleClasses = workspace.classes.filter(item => item.is_active && item.group_id === groupId);
+  const [classId, setClassId] = useState(visibleClasses[0]?.id ?? "");
   const [journals, setJournals] = useState<JournalRow[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [loading, setLoading] = useState(!previewMode);
@@ -206,12 +207,15 @@ export function RegionalJournalMonitor({ workspace, role, previewMode, notify }:
     return () => { active = false; };
   }, [month, previewMode]);
 
-  const visibleGroups = workspace.groups;
-  const visibleClasses = workspace.classes.filter(item => item.is_active && (groupId === "all" || item.group_id === groupId));
-  useEffect(() => { if (classId !== "all" && !visibleClasses.some(item => item.id === classId)) setClassId("all"); }, [groupId, visibleClasses, classId]);
+  useEffect(() => {
+    if (!groupId || !workspace.groups.some(item => item.id === groupId)) setGroupId(workspace.groups[0]?.id ?? "");
+  }, [groupId, workspace.groups]);
+  useEffect(() => {
+    if (!classId || !visibleClasses.some(item => item.id === classId)) setClassId(visibleClasses[0]?.id ?? "");
+  }, [groupId, classId, visibleClasses]);
 
-  const classIds = new Set(visibleClasses.filter(item => classId === "all" || item.id === classId).map(item => item.id));
-  const visibleJournals = journals.filter(item => classIds.has(item.class_id));
+  const visibleGroups = workspace.groups;
+  const visibleJournals = journals.filter(item => item.class_id === classId);
   const journalIds = new Set(visibleJournals.map(item => item.id));
   const visibleProgress = progress.filter(item => journalIds.has(item.journal_id));
   const avgSessionScore = (() => {
@@ -222,16 +226,20 @@ export function RegionalJournalMonitor({ workspace, role, previewMode, notify }:
     const values = visibleProgress.map(item => item.progress_value).filter((value): value is number => typeof value === "number");
     return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
   })();
+  const selectedGroup = workspace.groups.find(item => item.id === groupId);
+  const selectedClass = workspace.classes.find(item => item.id === classId);
+  const selectedVillage = workspace.villages.find(item => item.id === selectedGroup?.village_id);
 
   return <section className="regional-journal">
     <header className="region-hero compact">
-      <div><span>MONITORING JURNAL</span><h1>Jurnal Wilayah</h1><p>{role === "Admin Daerah" ? "Pantau jurnal seluruh desa dan kelompok dalam daerah." : "Pantau jurnal seluruh kelompok dalam desa."} Mode ini hanya baca; pengisian tetap dilakukan PJ Kelompok/Pengajar.</p></div>
+      <div><span>MONITORING JURNAL</span><h1>Jurnal Wilayah</h1><p>Pilih kelompok lalu kelas. Data jurnal tidak dicampur antar-kelompok. Mode ini hanya baca; pengisian tetap dilakukan PJ Kelompok/Pengajar.</p></div>
     </header>
     <div className="region-filter-grid">
+      <label><span>Kelompok</span><select value={groupId} onChange={event => { setGroupId(event.target.value); setClassId(""); }}>{visibleGroups.map(group => { const village=workspace.villages.find(item=>item.id===group.village_id); return <option key={group.id} value={group.id}>{role==="Admin Daerah"&&village?`${village.name} · ${group.name}`:group.name}</option>; })}</select></label>
+      <label><span>Kelas</span><select value={classId} onChange={event => setClassId(event.target.value)} disabled={!visibleClasses.length}>{visibleClasses.length ? visibleClasses.map(klass => <option key={klass.id} value={klass.id}>{klass.name}</option>) : <option value="">Belum ada kelas</option>}</select></label>
       <label><span>Bulan</span><KeyboardInput type="month" value={month} onChange={event => setMonth(event.target.value)}/></label>
-      <label><span>Kelompok</span><select value={groupId} onChange={event => setGroupId(event.target.value)}><option value="all">Semua kelompok</option>{visibleGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
-      <label><span>Kelas</span><select value={classId} onChange={event => setClassId(event.target.value)}><option value="all">Semua kelas</option>{visibleClasses.map(klass => <option key={klass.id} value={klass.id}>{klass.name}</option>)}</select></label>
     </div>
+    <div className="region-scope-note"><strong>{selectedClass?.name ?? "Pilih kelas"}</strong><span>{selectedVillage?.name ? `${selectedVillage.name} · ` : ""}{selectedGroup?.name ?? "Kelompok"}</span></div>
     <div className="region-metrics journal">
       <AreaMetric value={visibleJournals.length} label="Jurnal pengajian" />
       <AreaMetric value={visibleProgress.length} label="Penilaian individu" />
@@ -239,7 +247,7 @@ export function RegionalJournalMonitor({ workspace, role, previewMode, notify }:
       <AreaMetric value={avgProgress === null ? "—" : `${avgProgress}%`} label="Rata-rata progres" />
     </div>
     <section className="region-panel">
-      <div className="region-panel-head"><div><span>RIWAYAT</span><h2>Jurnal terbaru</h2></div><small>{visibleJournals.length} jurnal pada filter aktif</small></div>
+      <div className="region-panel-head"><div><span>RIWAYAT</span><h2>Jurnal {selectedClass?.name ?? "kelas"}</h2></div><small>{visibleJournals.length} jurnal pada bulan aktif</small></div>
       {loading ? <div className="region-empty">Memuat jurnal…</div> : visibleJournals.length ? <div className="regional-journal-list">
         {visibleJournals.map(item => {
           const klass = workspace.classes.find(row => row.id === item.class_id);
@@ -250,7 +258,7 @@ export function RegionalJournalMonitor({ workspace, role, previewMode, notify }:
             <div className="journal-monitor-body"><p><strong>Materi</strong>{item.material || "Belum diisi"}</p>{item.achievement ? <p><strong>Pencapaian</strong>{item.achievement}</p> : null}{item.obstacles ? <p><strong>Kendala</strong>{item.obstacles}</p> : null}{item.improvement_plan ? <p><strong>Tindak lanjut</strong>{item.improvement_plan}</p> : null}</div>
           </article>;
         })}
-      </div> : <div className="region-empty">Belum ada jurnal pada bulan/filter ini.</div>}
+      </div> : <div className="region-empty">Belum ada jurnal pada kelas dan bulan yang dipilih.</div>}
     </section>
   </section>;
 }
