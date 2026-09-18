@@ -93,6 +93,35 @@ export async function saveStudent(student: Partial<WorkspaceStudent> & Pick<Work
   if (error) throw error;
 }
 
+
+export async function importStudents(rows: Array<{
+  group_id: string;
+  full_name: string;
+  nickname: string | null;
+  school_grade: number | null;
+  birth_place: string | null;
+  birth_date: string | null;
+  address: string | null;
+  phone: string | null;
+  father_name: string | null;
+  father_phone: string | null;
+  mother_name: string | null;
+  mother_phone: string | null;
+  show_photo: boolean;
+  status: "active" | "inactive";
+}>) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  if (!rows.length) throw new Error("Tidak ada data siswa yang valid untuk diimpor");
+  if (rows.length > 500) throw new Error("Maksimal 500 siswa dalam satu import");
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("students").insert(rows.map((row) => ({
+    ...row,
+    photo_path: null,
+    updated_at: now,
+  })));
+  if (error) throw error;
+}
+
 export async function setStudentStatus(id: string, status: "active" | "inactive" | "archived") {
   if (!supabase) throw new Error("Supabase belum terhubung");
   const { error } = await supabase.from("students").update({
