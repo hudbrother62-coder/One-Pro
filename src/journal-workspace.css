@@ -10,51 +10,11 @@
 .one-pro-shell.is-dark .journal-page-head,.one-pro-shell.is-dark .journal-context-card,.one-pro-shell.is-dark .journal-focus-card,.one-pro-shell.is-dark .teacher-class-panel,.one-pro-shell.is-dark .monthly-ai-panel,.one-pro-shell.is-dark .student-assessment{background:var(--surface,#191a26);border-color:var(--line,#30313e)}.one-pro-shell.is-dark .journal-tabs{background:var(--surface-2,#222331)}.one-pro-shell.is-dark .journal-tabs button.active{background:var(--surface,#191a26)}.one-pro-shell.is-dark .rubric-block,.one-pro-shell.is-dark .student-rubric,.one-pro-shell.is-dark .journal-count{background:var(--surface-2,#222331);border-color:var(--line,#30313e)}.one-pro-shell.is-dark .rubric-row{background:var(--surface,#191a26)}.one-pro-shell.is-dark .journal-context-card select,.one-pro-shell.is-dark .journal-focus-card select,.one-pro-shell.is-dark .monthly-ai-panel select,.one-pro-shell.is-dark .journal-focus-card input,.one-pro-shell.is-dark .journal-focus-card textarea,.one-pro-shell.is-dark .journal-context-card input{background:#14151f;border-color:#343644}.one-pro-shell.is-dark .score-pills button{background:#1c1d28;border-color:#363846;color:#b7b8c4}.one-pro-shell.is-dark .score-pills button.active{background:#8b168f;color:#fff;border-color:#8b168f}
 @media(max-width:900px){.journal-page-head{padding:17px 17px 17px 19px}.journal-page-head h1{font-size:23px}.journal-page-head em{display:none}.journal-context-card{grid-template-columns:1fr 1fr;padding:12px}.journal-focus-card,.teacher-class-panel,.monthly-ai-panel{padding:14px}.student-assessment-list{grid-template-columns:1fr}.rubric-row{grid-template-columns:1fr auto}.journal-section-title p{max-width:520px}}
 @media(max-width:560px){.journal-page-head{border-radius:17px}.journal-context-card,.journal-two{grid-template-columns:1fr}.journal-tabs button{font-size:10px;padding:10px 8px}.rubric-row{grid-template-columns:1fr;gap:9px}.score-pills{width:100%}.score-pills button{flex:1}.student-assessment{grid-template-columns:1fr;padding:12px}.student-assessment>label,.student-assessment>label:nth-last-of-type(-n+2),.student-rubric{grid-column:1}.student-rubric>div{align-items:flex-start;flex-direction:column}.student-rubric .score-pills{width:100%}.student-rubric .score-pills button{flex:1}.teacher-class-options{display:grid;grid-template-columns:1fr 1fr}.teacher-class-options button{justify-content:flex-start}.journal-section-title{margin-bottom:13px}.journal-save,.ai-run-button{position:relative;z-index:1}}
-/* JOURNAL DATA SCROLL SYSTEM — 2026-09-18 */
+
+/* JOURNAL SAFE SCROLL — 2026-09-18 */
+/* Journal content follows the page scroll so long forms never trap touch scrolling. */
 .student-assessment-list,.teacher-class-panel,.ai-result{
-  scrollbar-width:thin;
-  scrollbar-color:var(--scroll-thumb,color-mix(in srgb,var(--muted) 34%,transparent)) transparent;
-  overscroll-behavior:contain;
-  -webkit-overflow-scrolling:touch;
-}
-.student-assessment-list::-webkit-scrollbar,.teacher-class-panel::-webkit-scrollbar,.ai-result::-webkit-scrollbar{width:7px;height:7px}
-.student-assessment-list::-webkit-scrollbar-thumb,.teacher-class-panel::-webkit-scrollbar-thumb,.ai-result::-webkit-scrollbar-thumb{
-  border-radius:999px;background:var(--scroll-thumb,color-mix(in srgb,var(--muted) 34%,transparent));border:2px solid transparent;background-clip:padding-box
-}
-@media(min-width:900px){
-  .student-assessment-list{
-    max-height:min(68dvh,740px);
-    overflow-y:auto;
-    overflow-x:hidden;
-    padding-right:3px;
-  }
-  .teacher-class-panel{
-    max-height:min(62dvh,680px);
-    overflow-y:auto;
-    overflow-x:hidden;
-  }
-  .ai-result{
-    max-height:min(56dvh,600px);
-    overflow-y:auto;
-    overflow-x:hidden;
-    padding-right:3px;
-  }
-}
-@media(max-width:899px){
-  .student-assessment-list{
-    max-height:min(70dvh,680px);
-    overflow-y:auto;
-    overflow-x:hidden;
-    padding-right:2px;
-  }
-  .teacher-class-panel{
-    max-height:min(64dvh,620px);
-    overflow-y:auto;
-    overflow-x:hidden;
-  }
-  .ai-result{
-    max-height:min(58dvh,560px);
-    overflow-y:auto;
-    overflow-x:hidden;
-  }
+  max-height:none!important;
+  overflow:visible!important;
+  overscroll-behavior:auto!important;
 }
