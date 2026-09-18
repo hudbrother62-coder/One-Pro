@@ -70,3 +70,66 @@
   .screen-agenda .calendar-agenda-preview small{font-size:5.8px}
   .month-input{grid-template-columns:auto minmax(128px,1fr);width:100%;max-width:250px}
 }
+/* OPS MODAL VIEWPORT FIX — 2026-09-18 */
+.ops-modal-backdrop{
+  position:fixed!important;
+  z-index:85!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:
+    max(12px,env(safe-area-inset-top))
+    max(12px,env(safe-area-inset-right))
+    max(12px,env(safe-area-inset-bottom))
+    max(12px,env(safe-area-inset-left))!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+}
+.ops-modal{
+  width:min(460px,100%)!important;
+  max-width:100%!important;
+  max-height:calc(100dvh - max(24px,env(safe-area-inset-top) + env(safe-area-inset-bottom) + 18px))!important;
+  margin:auto!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable;
+}
+.ops-modal>header{
+  position:sticky!important;
+  z-index:4!important;
+  top:-18px!important;
+  margin:-18px -18px 0!important;
+  padding:18px!important;
+  background:var(--surface)!important;
+  border-bottom:1px solid var(--line);
+}
+@media(max-width:899px),(max-height:700px){
+  .ops-modal-backdrop{
+    align-items:flex-start!important;
+    padding-top:max(10px,env(safe-area-inset-top))!important;
+    padding-bottom:max(10px,env(safe-area-inset-bottom))!important;
+  }
+  .ops-modal{
+    width:min(100%,560px)!important;
+    max-height:calc(100dvh - max(20px,env(safe-area-inset-top) + env(safe-area-inset-bottom) + 12px))!important;
+    border-radius:16px!important;
+    padding:16px!important;
+  }
+  .ops-modal>header{
+    top:-16px!important;
+    margin:-16px -16px 0!important;
+    padding:14px 16px!important;
+  }
+}
+@media(max-width:560px){
+  .ops-modal-backdrop{padding-left:8px!important;padding-right:8px!important}
+  .ops-modal{width:100%!important;border-radius:15px!important}
+}
