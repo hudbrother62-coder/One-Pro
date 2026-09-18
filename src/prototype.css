@@ -303,3 +303,646 @@ button { -webkit-tap-highlight-color: transparent; }
 
 @media(max-width:899px){.org-chat-shell{height:calc(100dvh - 220px);min-height:470px;display:block}.org-contact-pane,.org-conversation-pane{height:100%}.org-conversation-pane{display:none}.org-chat-shell.has-selection .org-contact-pane{display:none}.org-chat-shell.has-selection .org-conversation-pane{display:grid}.org-chat-back{display:grid}.org-message-scroll{padding:14px 12px}.org-bubble{max-width:86%}.org-contact-row{min-height:68px}.org-chat-placeholder{display:none}}
 @media(min-width:900px){.mobile-menu-trigger,.mobile-nav-overlay{display:none!important}.topbar-leading{gap:0}.org-chat-back{display:none!important}.org-chat-shell{height:min(720px,calc(100vh - 190px))}}
+/* ONE PRO DESIGN SYSTEM V3 — 2026-09-18 */
+/* Cohesive product polish: restrained color, stronger hierarchy, consistent density, desktop/mobile parity. */
+
+.one-pro-shell{
+  --bg:#f7f7f9;
+  --surface:#ffffff;
+  --surface-2:#f4f4f7;
+  --surface-3:#eeeeF3;
+  --text:#171821;
+  --muted:#6f7280;
+  --line:#e5e6eb;
+  --purple:#681474;
+  --purple-2:#86158d;
+  --blue:#075797;
+  --navy:#172a67;
+  --success:#167c60;
+  --warning:#a96508;
+  --danger:#bd3d49;
+  --radius-sm:10px;
+  --radius-md:14px;
+  --radius-lg:18px;
+  --content-max:1220px;
+  --control-h:44px;
+  font-size:14px;
+  line-height:1.45;
+  letter-spacing:-.006em;
+}
+.one-pro-shell.is-dark{
+  --bg:#101119;
+  --surface:#171822;
+  --surface-2:#1e202b;
+  --surface-3:#252734;
+  --text:#f2f2f6;
+  --muted:#a0a3b0;
+  --line:#2c2f3b;
+  --success:#55b99c;
+  --warning:#e1a84f;
+  --danger:#ed6a75;
+}
+.one-pro-shell button{cursor:pointer}
+.one-pro-shell button:disabled{cursor:not-allowed}
+.one-pro-shell button,.one-pro-shell input,.one-pro-shell textarea,.one-pro-shell select{transition:border-color .16s ease,background-color .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease}
+.one-pro-shell button:focus-visible,.one-pro-shell input:focus-visible,.one-pro-shell textarea:focus-visible,.one-pro-shell select:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--purple-2) 18%,transparent);
+  outline-offset:2px;
+}
+
+/* App shell */
+.topbar{
+  background:color-mix(in srgb,var(--surface) 93%,transparent);
+  border-color:var(--line);
+  backdrop-filter:blur(18px) saturate(1.12);
+}
+.icon-button,.primary-icon,.mobile-menu-trigger{
+  border-radius:12px;
+  box-shadow:none;
+}
+.icon-button:hover,.mobile-menu-trigger:hover{
+  background:var(--surface-2);
+  border-color:color-mix(in srgb,var(--purple-2) 22%,var(--line));
+}
+.primary-icon{background:var(--purple-2)}
+.brand-button strong,.desktop-brand strong{font-weight:800}
+.desktop-scope,.mobile-nav-scope{
+  background:var(--surface-2);
+  border-color:var(--line);
+}
+.desktop-sidebar{background:var(--surface)}
+.desktop-nav button,.mobile-nav-list button{
+  position:relative;
+  font-weight:700;
+}
+.desktop-nav button.active{
+  color:var(--text)!important;
+  background:color-mix(in srgb,var(--purple-2) 8%,var(--surface))!important;
+  box-shadow:none!important;
+}
+.desktop-nav button.active::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:10px;
+  bottom:10px;
+  width:3px;
+  border-radius:0 3px 3px 0;
+  background:var(--purple-2);
+}
+.desktop-nav button.active svg{color:var(--purple-2)}
+.mobile-nav-list button.active{
+  color:var(--text);
+  background:color-mix(in srgb,var(--purple-2) 8%,var(--surface));
+}
+.mobile-nav-list button.active svg{color:var(--purple-2)}
+
+/* Type hierarchy */
+.context-row,.page-heading{align-items:flex-start;margin-bottom:22px}
+.context-row h1,.page-heading h1{
+  margin:4px 0 0;
+  font-weight:800;
+  letter-spacing:-.045em;
+}
+.page-heading p{margin-top:7px;line-height:1.55}
+.eyebrow{
+  color:var(--purple-2);
+  font-weight:850;
+  letter-spacing:.11em;
+}
+.section-title{margin:26px 0 12px}
+.section-title h2{font-weight:800;letter-spacing:-.025em}
+
+/* Universal surfaces and controls */
+.focus-panel,.data-card,.progress-hero,.upload-card,.form-card,.settings-card,
+.attendance-dashboard-card,.journal-page-head,.journal-context-card,.journal-focus-card,
+.teacher-class-panel,.monthly-ai-panel,.class-card-list,.class-roster-panel,
+.attendance-fill-card,.attendance-recap-workspace,.ppt-template-manager,
+.word-report-manager,.ppt-report-manager,.report-period-panel,.org-chat-shell{
+  border-color:var(--line)!important;
+  border-radius:var(--radius-lg)!important;
+  box-shadow:none!important;
+}
+.field>span,.auth-field span,
+.class-teacher-field>span,.attendance-controls-pro label>span,.attendance-recap-filters label>span,
+.ppt-template-controls label>span,.word-report-controls label>span,.report-period-panel label>span,
+.journal-context-card label>span,.journal-focus-card label>span,.monthly-ai-panel label>span{
+  color:var(--muted);
+  font-size:11px!important;
+  line-height:1.2;
+  font-weight:750!important;
+}
+.field input,.field textarea,.field select,.search input,
+.class-teacher-field select,.attendance-controls-pro select,.attendance-recap-filters select,
+.ppt-template-controls select,.word-report-controls select,.report-period-panel select,
+.journal-context-card select,.journal-focus-card select,.monthly-ai-panel select,
+.journal-focus-card input,.journal-focus-card textarea,.journal-context-card input,
+.org-chat-composer input{
+  min-height:var(--control-h);
+  border:1px solid var(--line)!important;
+  border-radius:11px!important;
+  color:var(--text)!important;
+  background:var(--surface)!important;
+  font-size:13px!important;
+  box-shadow:none!important;
+}
+.field textarea,.journal-focus-card textarea{min-height:104px;resize:vertical}
+.field input:hover,.field textarea:hover,.field select:hover,
+.journal-context-card select:hover,.journal-focus-card select:hover{
+  border-color:color-mix(in srgb,var(--text) 15%,var(--line))!important;
+}
+.field input:focus,.field textarea:focus,.field select:focus,
+.journal-context-card select:focus,.journal-focus-card select:focus,
+.monthly-ai-panel select:focus,.journal-focus-card input:focus,.journal-focus-card textarea:focus{
+  border-color:color-mix(in srgb,var(--purple-2) 60%,var(--line))!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--purple-2) 10%,transparent)!important;
+}
+.primary-button,.secondary-button,.danger-button,
+.journal-save,.ai-run-button,.save-class-roster,.template-upload-button,
+.word-download-button,.ppt-generate-button,.workspace-add{
+  min-height:44px;
+  border-radius:11px!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  box-shadow:none!important;
+}
+.primary-button,.journal-save,.ai-run-button,.save-class-roster,.template-upload-button,
+.workspace-add{
+  background:var(--purple-2)!important;
+}
+.secondary-button{
+  color:var(--text);
+  background:var(--surface)!important;
+  border:1px solid var(--line)!important;
+}
+.secondary-button:hover{background:var(--surface-2)!important}
+.primary-button:hover,.journal-save:hover,.ai-run-button:hover,.save-class-roster:hover,.template-upload-button:hover,.workspace-add:hover{
+  background:color-mix(in srgb,var(--purple-2) 88%,#000)!important;
+}
+
+/* Segmented controls / filters */
+.segmented,.journal-tabs,.database-view-tabs,.ops-tabs{
+  padding:4px;
+  gap:4px;
+  border:1px solid var(--line);
+  border-radius:13px!important;
+  background:var(--surface-2)!important;
+}
+.segmented button,.journal-tabs button,.database-view-tabs button,.ops-tabs button{
+  min-height:40px;
+  color:var(--muted);
+  border:0!important;
+  border-radius:9px!important;
+  background:transparent!important;
+  font-size:11px!important;
+  font-weight:750!important;
+  box-shadow:none!important;
+}
+.segmented button.active,.journal-tabs button.active,.database-view-tabs button.active,.ops-tabs button.active{
+  color:var(--text)!important;
+  background:var(--surface)!important;
+  box-shadow:inset 0 0 0 1px var(--line)!important;
+}
+.filter-pills button,.chip-row button{
+  padding:8px 12px;
+  font-size:10px;
+  border-radius:999px;
+}
+.filter-pills button.active,.chip-row button.active{
+  color:var(--purple-2);
+  border-color:color-mix(in srgb,var(--purple-2) 36%,var(--line));
+  background:color-mix(in srgb,var(--purple-2) 7%,var(--surface));
+}
+
+/* Dashboard */
+.dashboard-summary-grid{gap:12px;margin-bottom:16px}
+.summary-stat-card{
+  min-height:112px;
+  padding:17px;
+  border-radius:16px;
+  cursor:pointer;
+}
+.summary-stat-card:hover{
+  transform:translateY(-1px);
+  border-color:color-mix(in srgb,var(--purple-2) 26%,var(--line));
+  background:var(--surface);
+}
+.summary-stat-card span{font-size:10px;letter-spacing:.06em}
+.summary-stat-card strong{font-size:32px;letter-spacing:-.045em}
+.summary-stat-card small{font-size:10px}
+.attendance-dashboard-card{padding:18px}
+.dashboard-card-head{margin-bottom:16px}
+.dashboard-card-head h2{font-size:16px}
+.class-attendance-track{height:8px;border:0}
+.class-attendance-track span,.month-trend-bar span{background:var(--purple-2)}
+.month-trend-item.current{
+  background:color-mix(in srgb,var(--purple-2) 6%,var(--surface));
+  outline:1px solid color-mix(in srgb,var(--purple-2) 18%,var(--line));
+}
+
+/* Agenda */
+.screen-agenda .agenda-calendar-shell{
+  width:min(100%,880px)!important;
+  margin:0 0 18px!important;
+  border-radius:16px!important;
+}
+.screen-agenda .calendar-head{
+  padding:12px 14px!important;
+  background:var(--surface)!important;
+}
+.screen-agenda .calendar-head strong{font-size:14px!important}
+.screen-agenda .calendar-head .icon-button{
+  width:34px!important;
+  height:34px!important;
+  background:var(--surface)!important;
+}
+.screen-agenda .calendar-weekdays{
+  padding:0!important;
+  background:var(--surface-2)!important;
+}
+.screen-agenda .calendar-weekdays span{
+  padding:9px 2px!important;
+  font-size:9px!important;
+}
+.screen-agenda .calendar-grid>button{
+  min-height:76px!important;
+  padding:7px!important;
+}
+.screen-agenda .calendar-date-number{
+  width:27px!important;height:27px!important;border-radius:8px!important;font-size:10px!important;
+}
+.screen-agenda .calendar-grid>button.active{
+  background:color-mix(in srgb,var(--purple-2) 5%,var(--surface))!important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--purple-2) 45%,var(--line))!important;
+}
+.screen-agenda .calendar-grid>button.active .calendar-date-number{
+  background:var(--purple-2)!important;
+  box-shadow:none!important;
+}
+.screen-agenda .calendar-agenda-preview em{
+  padding:3px 5px!important;
+  border:0!important;
+  border-radius:6px!important;
+  background:var(--surface-2)!important;
+  color:var(--blue)!important;
+  font-size:7.5px!important;
+}
+
+/* Journal */
+.journal-page-head{
+  padding:20px!important;
+  overflow:hidden;
+}
+.journal-page-head:before{
+  width:3px!important;
+  background:var(--purple-2)!important;
+}
+.journal-page-head h1{font-size:26px!important}
+.journal-page-head p{font-size:12px!important}
+.journal-page-head em{
+  padding:6px 9px!important;
+  background:var(--surface-2)!important;
+  font-size:9px!important;
+}
+.journal-context-card{
+  grid-template-columns:minmax(0,1fr) minmax(190px,.36fr)!important;
+  gap:14px!important;
+  padding:16px!important;
+}
+.journal-focus-card{padding:18px!important}
+.journal-section-title{gap:11px!important;margin-bottom:16px!important}
+.journal-section-title>span{
+  width:36px!important;height:36px!important;border-radius:10px!important;
+  color:var(--purple-2)!important;
+  background:color-mix(in srgb,var(--purple-2) 7%,var(--surface))!important;
+}
+.journal-section-title h2{font-size:17px!important}
+.journal-section-title p{font-size:10px!important}
+.rubric-block,.student-rubric{
+  background:var(--surface)!important;
+  border-radius:13px!important;
+}
+.rubric-title{background:var(--surface-2)!important}
+.rubric-row{padding:12px!important}
+.score-pills button{
+  width:34px!important;height:34px!important;
+  border-radius:9px!important;
+  background:var(--surface)!important;
+}
+.score-pills button.active{
+  color:#fff!important;
+  background:var(--purple-2)!important;
+}
+.student-assessment-list{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))!important;
+  gap:12px!important;
+}
+.student-assessment{
+  padding:15px!important;
+  border-radius:15px!important;
+}
+.student-assessment header>b{
+  background:color-mix(in srgb,var(--purple-2) 7%,var(--surface))!important;
+}
+.monthly-ai-panel,.teacher-class-panel{padding:18px!important}
+
+/* Database / class assignment */
+.workspace-heading,.attendance-page-head{margin-bottom:2px}
+.workspace-heading h1,.attendance-page-head h1{font-size:27px!important}
+.workspace-heading p,.attendance-page-head p{font-size:11px!important}
+.class-workspace-grid{grid-template-columns:minmax(260px,310px) minmax(0,1fr)!important;gap:14px!important}
+.class-card-list{padding:6px!important}
+.class-card-list>button{padding:11px!important;border-radius:10px!important}
+.class-card-list>button.active{
+  background:color-mix(in srgb,var(--purple-2) 7%,var(--surface))!important;
+}
+.class-card-list>button.active .class-card-icon{color:var(--purple-2)}
+.class-card-icon,.roster-avatar{border-radius:10px!important}
+.class-roster-panel{padding:18px!important}
+.roster-list,.attendance-student-list,.individual-recap-table{border-radius:13px!important}
+.roster-row,.attendance-student-list article{min-height:58px}
+.roster-row:hover{background:var(--surface-2)}
+.roster-row strong,.attendance-student-list strong{font-size:11px!important}
+.roster-row small,.attendance-student-list small{font-size:9px!important}
+.screen-students .student-row{
+  min-height:74px;
+  border-radius:14px!important;
+}
+
+/* Attendance */
+.attendance-fill-card,.attendance-recap-workspace{padding:18px!important}
+.attendance-controls-pro,.attendance-recap-filters{gap:12px!important}
+.attendance-choice button{
+  width:36px!important;height:36px!important;border-radius:9px!important;
+  background:var(--surface)!important;
+}
+.recap-metrics{gap:8px!important}
+.recap-metrics article{
+  min-height:82px;
+  padding:13px!important;
+  border-radius:13px!important;
+  background:var(--surface)!important;
+}
+.recap-metrics strong{font-size:22px!important}
+.recap-metrics span{font-size:9px!important}
+.individual-recap-head{padding:12px 14px!important}
+.individual-recap-table article{padding:11px 14px!important}
+.individual-recap-table b{font-size:12px!important}
+
+/* Reports */
+.report-period-panel{
+  grid-template-columns:minmax(190px,.8fr) minmax(220px,1fr) minmax(260px,1.35fr)!important;
+  gap:12px!important;
+  padding:16px!important;
+  margin-bottom:0!important;
+}
+.report-period-note{
+  min-height:var(--control-h)!important;
+  padding:0 12px!important;
+  border-color:var(--line)!important;
+  background:var(--surface-2)!important;
+}
+.report-period-note strong{font-size:10px!important;font-weight:650!important;color:var(--muted)}
+.report-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:0;
+}
+.report-actions .secondary-button{
+  width:auto!important;
+  min-width:116px;
+  margin:0!important;
+  padding:0 16px;
+}
+.student-report-list{display:grid;gap:10px}
+.student-report{
+  padding:16px!important;
+  border-radius:15px!important;
+}
+.report-stats{
+  grid-template-columns:repeat(4,1fr)!important;
+  border-radius:11px!important;
+}
+.word-report-manager,.ppt-report-manager,.ppt-template-manager{
+  padding:18px!important;
+}
+.word-report-manager h2,.ppt-report-manager h2,.ppt-template-manager h2{font-size:16px!important}
+.word-report-manager p,.ppt-report-manager p,.ppt-template-manager p{font-size:10px!important}
+.word-report-icon,.ppt-report-icon,.ppt-icon{
+  width:40px!important;height:40px!important;border-radius:11px!important;
+  box-shadow:none!important;
+}
+.word-report-icon{background:var(--blue)!important}
+.ppt-report-icon,.ppt-icon{background:var(--purple-2)!important}
+.word-download-button{
+  background:var(--blue)!important;
+}
+.ppt-generate-button{
+  background:var(--purple-2)!important;
+}
+.word-download-button:hover{background:color-mix(in srgb,var(--blue) 88%,#000)!important}
+.ppt-generate-button:hover{background:color-mix(in srgb,var(--purple-2) 88%,#000)!important}
+.ppt-template-note{
+  background:var(--surface-2)!important;
+  border-color:var(--line)!important;
+}
+
+/* Communication */
+.org-chat-shell{
+  border-radius:16px!important;
+  background:var(--surface)!important;
+}
+.org-contact-head{padding:16px 16px 10px!important}
+.org-contact-head strong{font-size:14px!important}
+.org-contact-head small{font-size:9px!important}
+.org-chat-search{margin:0 12px 12px!important;background:var(--surface)!important}
+.org-contact-row{min-height:68px!important;padding:10px 12px!important}
+.org-contact-copy strong{font-size:12px!important}
+.org-contact-copy small{font-size:9px!important}
+.org-contact-row.active{
+  background:color-mix(in srgb,var(--purple-2) 7%,var(--surface))!important;
+}
+.org-conversation-head{min-height:66px!important;padding:11px 15px!important}
+.org-conversation-head strong{font-size:13px!important}
+.org-conversation-head small{font-size:9px!important}
+.org-message-scroll{
+  padding:18px!important;
+  gap:7px!important;
+  background:color-mix(in srgb,var(--surface-2) 78%,var(--surface))!important;
+}
+.org-bubble{
+  padding:9px 11px 7px!important;
+  border:1px solid var(--line)!important;
+  border-radius:13px 13px 13px 5px!important;
+  box-shadow:none!important;
+}
+.org-bubble.mine{
+  border-color:color-mix(in srgb,var(--purple-2) 20%,var(--line))!important;
+  background:color-mix(in srgb,var(--purple-2) 9%,var(--surface))!important;
+}
+.org-bubble p{font-size:11px!important}
+.org-bubble small{font-size:8px!important}
+.org-chat-composer{padding:10px 12px!important}
+.org-chat-composer button{border-radius:11px!important;background:var(--purple-2)!important}
+
+/* Lists / team / target / settings */
+.action-list,.student-list,.team-list,.target-list,.village-list,.card-list{
+  border-radius:15px!important;
+}
+.action-row,.student-row,.target-row,.village-row{
+  padding:12px 14px!important;
+}
+.action-icon,.target-icon{
+  border-radius:10px!important;
+  background:color-mix(in srgb,var(--purple-2) 7%,var(--surface))!important;
+}
+.status{font-size:9px!important;padding:5px 8px!important}
+.empty-state{min-height:170px;border-radius:15px!important}
+.empty-state strong{font-size:13px!important}
+.empty-state p{font-size:10px!important;max-width:440px;text-align:center}
+
+/* Floating layers are the only places that receive strong elevation. */
+.editor-overlay,.ops-modal-backdrop,.mobile-nav-overlay{backdrop-filter:blur(5px)}
+.editor-panel,.ops-modal,.mobile-nav-drawer{
+  box-shadow:0 22px 65px #0708112c!important;
+}
+.editor-panel,.ops-modal{border-radius:18px!important}
+.toast{
+  border:1px solid color-mix(in srgb,var(--success) 28%,var(--line));
+  box-shadow:0 12px 35px #090a121b;
+}
+
+/* Desktop composition */
+@media (min-width:900px){
+  .one-pro-shell{--sidebar-width:264px}
+  .desktop-sidebar{padding:20px 14px 16px!important}
+  .desktop-brand{padding:2px 10px 18px!important}
+  .desktop-nav{gap:2px!important;padding-right:2px}
+  .desktop-nav button{
+    min-height:43px!important;
+    padding:0 12px!important;
+    border-radius:10px!important;
+    font-size:12px!important;
+  }
+  .desktop-sidebar-footer{margin:12px 2px 0!important;padding:11px 10px!important;border-radius:10px}
+  .desktop-sidebar-footer:hover{background:var(--surface-2);color:var(--text)}
+  .topbar{height:72px!important;padding:10px 30px!important}
+  .app-screen{inset:72px 0 0 var(--sidebar-width)!important}
+  .screen-content{
+    width:min(100%,var(--content-max))!important;
+    margin:0 auto!important;
+    padding:30px 32px 56px!important;
+  }
+  .context-row h1,.page-heading h1{font-size:30px!important}
+  .page-heading p{font-size:12px!important}
+  .screen-home{column-gap:16px!important}
+  .summary-stat-card{min-height:116px!important}
+  .summary-stat-card strong{font-size:34px!important}
+  .attendance-dashboard-card{padding:18px!important}
+  .screen-students .student-list{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:10px!important;
+  }
+  .attendance-list{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .form-card,.student-report,.upload-card{padding:18px!important}
+
+  .screen-reports{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:14px;
+    align-content:start;
+  }
+  .screen-reports>.page-heading,
+  .screen-reports>.report-period-panel,
+  .screen-reports>.report-print-heading,
+  .screen-reports>.segmented,
+  .screen-reports>.report-actions,
+  .screen-reports>.student-report-list,
+  .screen-reports>.ppt-template-manager{
+    grid-column:1/-1;
+  }
+  .screen-reports>.word-report-manager{grid-column:1}
+  .screen-reports>.ppt-report-manager{grid-column:2}
+  .screen-reports>.segmented{margin-bottom:0}
+  .screen-reports>.student-report-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* Mobile composition */
+@media (max-width:899px){
+  .topbar{height:66px!important;padding:9px 14px!important}
+  .screen-content{
+    padding:86px 14px calc(96px + env(safe-area-inset-bottom))!important;
+  }
+  .brand-button::before{width:38px!important;height:38px!important;border-radius:11px!important}
+  .brand-button strong{font-size:14px!important}
+  .brand-button small{font-size:9px!important}
+  .top-actions .icon-button,.mobile-menu-trigger{width:38px;height:38px}
+  .context-row,.page-heading{margin-bottom:16px}
+  .context-row h1,.page-heading h1{font-size:23px!important}
+  .page-heading p{font-size:11px!important}
+  .dashboard-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+  .summary-stat-card{min-height:92px!important;padding:10px!important}
+  .summary-stat-card span{font-size:7.5px!important}
+  .summary-stat-card strong{font-size:24px!important}
+  .summary-stat-card small{font-size:7.5px!important}
+  .attendance-dashboard-card{padding:14px!important}
+  .class-workspace-grid{grid-template-columns:1fr!important}
+  .class-card-list{
+    display:flex!important;
+    overflow-x:auto!important;
+    padding:5px!important;
+    scroll-snap-type:x proximity;
+  }
+  .class-card-list>button{min-width:190px!important;scroll-snap-align:start}
+  .journal-page-head{padding:16px!important}
+  .journal-page-head h1{font-size:22px!important}
+  .journal-page-head p{font-size:10px!important}
+  .journal-context-card,.journal-two{grid-template-columns:1fr!important}
+  .student-assessment-list{grid-template-columns:1fr!important}
+  .report-period-panel{grid-template-columns:1fr!important;padding:13px!important}
+  .report-actions{display:grid;grid-template-columns:1fr 1fr}
+  .report-actions .secondary-button{width:100%!important;min-width:0}
+  .screen-reports>.student-report-list{grid-template-columns:1fr!important}
+  .org-chat-shell{height:calc(100dvh - 190px)!important;min-height:430px!important}
+  .org-message-scroll{padding:12px!important}
+  .org-bubble{max-width:88%!important}
+  .mobile-nav-drawer{width:min(88%,326px)!important;padding-left:12px!important;padding-right:12px!important}
+  .bottom-nav{
+    left:8px!important;right:8px!important;height:66px!important;padding:4px!important;
+    border:1px solid var(--line);
+    border-radius:17px;
+    background:color-mix(in srgb,var(--surface) 95%,transparent);
+    box-shadow:0 12px 30px #08091216;
+  }
+  .bottom-nav button{border-radius:12px!important}
+}
+
+/* Small phone: preserve legibility instead of shrinking text below readable sizes. */
+@media (max-width:560px){
+  .screen-content{padding-left:12px!important;padding-right:12px!important}
+  .form-grid.two,.attendance-controls-pro,.attendance-recap-filters,.ppt-template-controls,.word-report-controls{
+    grid-template-columns:1fr!important;
+  }
+  .recap-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .recap-metrics article{min-height:76px}
+  .individual-recap-table{
+    overflow-x:auto!important;
+  }
+  .individual-recap-table article{
+    min-width:610px;
+    grid-template-columns:38px minmax(180px,1fr) repeat(4,72px)!important;
+  }
+  .individual-recap-table article>span{display:block!important}
+  .screen-agenda .calendar-grid>button{min-height:56px!important;padding:4px!important}
+  .screen-agenda .calendar-weekdays span{font-size:7px!important}
+  .screen-agenda .calendar-date-number{width:23px!important;height:23px!important;font-size:8px!important}
+  .screen-agenda .calendar-agenda-preview em{font-size:6px!important;padding:2px 3px!important}
+  .student-assessment{grid-template-columns:1fr!important;padding:12px!important}
+  .score-pills{width:100%}
+  .score-pills button{flex:1}
+  .org-contact-row{min-height:64px!important}
+  .org-contact-copy strong{font-size:11px!important}
+  .org-bubble p{font-size:10.5px!important}
+}
+
