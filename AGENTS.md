@@ -137,8 +137,9 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 
 ## Scroll behavior decision — 2026-09-18
 
-- Any navigation or data collection that can grow substantially must remain scrollable instead of clipping or stretching the layout without bound. This includes desktop/mobile navigation, student/team/target lists, class rosters, attendance entry and recap, report lists, journal student assessments, AI result detail, agenda lists, chat contacts/messages, and long modals.
-- Use vertical scrolling for long collections, horizontal scrolling only for genuine wide table-like content, and preserve natural page scrolling on mobile outside bounded high-density regions. Use themed thin scrollbars and overscroll containment.
+- ONE PRO uses a single primary page scroll for ordinary screens and long lists. Do not add nested vertical scrolling to student/team/target lists, class rosters, attendance entry, journal assessment lists, report cards, or agenda lists; nested scroll regions caused touch conflicts and inaccessible content on mobile.
+- Independent vertical scrolling is reserved for navigation drawers/sidebars, long dialogs, and chat contact/message panes. True wide tabular content may use horizontal scrolling on mobile. Class selector cards may scroll horizontally on small screens.
+- Long modals use their own viewport-safe scroll because they float above the page. Keep modal header/actions reachable and account for mobile dynamic viewport/safe-area insets.
 
 
 ## Regional admin monitoring decisions — 2026-09-18
