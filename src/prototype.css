@@ -1105,3 +1105,57 @@ button { -webkit-tap-highlight-color: transparent; }
   overflow-y:hidden!important;
   -webkit-overflow-scrolling:touch;
 }
+/* ONE PRO MOBILE NATIVE SCROLL + SCOPE FILTERS — 2026-09-18 */
+/* App content opts out of simulated pointer physics; browser-native touch scrolling is more reliable on real phones. */
+.app-screen .mobile-scroll{
+  touch-action:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-y:contain!important;
+  overscroll-behavior-x:none!important;
+  scroll-behavior:auto!important;
+}
+.app-screen .mobile-scroll-content{
+  min-height:100%;
+}
+.agenda-scope-filter,.regional-scope-selector{
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) minmax(220px,1.15fr);
+  gap:10px;
+  padding:14px;
+  margin-bottom:14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface);
+}
+.regional-scope-selector.one-column{
+  grid-template-columns:minmax(220px,1fr) minmax(220px,1fr);
+}
+.agenda-scope-filter label,.regional-scope-selector label{
+  display:grid;gap:6px;min-width:0;
+}
+.agenda-scope-filter label>span,.regional-scope-selector label>span,
+.agenda-scope-summary>span,.regional-scope-selector>div>span{
+  color:var(--muted);font-size:9px;font-weight:800;
+}
+.agenda-scope-filter select,.regional-scope-selector select{
+  width:100%;min-height:43px;padding:0 11px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--text);font-size:11px;
+}
+.agenda-scope-summary,.regional-scope-selector>div{
+  display:grid;align-content:center;gap:2px;min-width:0;padding:9px 11px;border-radius:11px;background:var(--surface-2);
+}
+.agenda-scope-summary strong,.regional-scope-selector>div strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agenda-scope-summary small,.regional-scope-selector>div small{color:var(--muted);font-size:8px}
+@media(max-width:899px){
+  .agenda-scope-filter,.regional-scope-selector,.regional-scope-selector.one-column{
+    grid-template-columns:1fr!important;
+    padding:12px;
+  }
+  /* Prevent fixed chrome from stealing the last content pixels on dynamic-height Android browsers. */
+  .screen-content{
+    min-height:calc(100dvh - env(safe-area-inset-top))!important;
+    padding-bottom:calc(118px + env(safe-area-inset-bottom))!important;
+  }
+  .app-screen .mobile-scroll{
+    padding-bottom:0!important;
+  }
+}
