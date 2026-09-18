@@ -702,42 +702,63 @@ function Targets({ notify, workspace, userId, previewMode, canManage }: { notify
 function Reports({ notify, workspace, previewMode, role }: { notify: (message: string) => void; workspace: WorkspaceData; previewMode: boolean; role: Role }) {
   const [tab, setTab] = useState<"individual" | "class">("individual");
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [villageFilter, setVillageFilter] = useState("all");
-  const [groupFilter, setGroupFilter] = useState("all");
-  const [classFilter, setClassFilter] = useState("all");
-  const [attendance, setAttendance] = useState<Array<{ student_id: string; status: "hadir" | "izin" | "alpha"; session_date: string; class_id: string }>>([]);
   const regionalRole = role === "Admin Daerah" || role === "Admin Desa";
+  const [groupFilter, setGroupFilter] = useState(workspace.groups[0]?.id ?? "");
+  const classesForGroup = workspace.classes.filter(item => item.is_active && (!regionalRole || item.group_id === groupFilter));
+  const [classFilter, setClassFilter] = useState(classesForGroup[0]?.id ?? "");
+  const [attendance, setAttendance] = useState<Array<{ student_id: string; status: "hadir" | "izin" | "alpha"; session_date: string; class_id: string }>>([]);
+
   useEffect(() => { if (!previewMode) loadAttendanceSummary().then(setAttendance).catch((error) => notify(error instanceof Error ? error.message : "Rekap presensi gagal dimuat")); }, [previewMode]);
-
-  const visibleVillages = workspace.villages;
-  const visibleGroups = workspace.groups.filter(group => villageFilter === "all" || group.village_id === villageFilter);
-  const allowedGroupIds = new Set(visibleGroups.filter(group => groupFilter === "all" || group.id === groupFilter).map(group => group.id));
-  const visibleClasses = workspace.classes.filter(item => item.is_active && allowedGroupIds.has(item.group_id));
-
   useEffect(() => {
-    if (villageFilter !== "all" && !visibleVillages.some(item => item.id === villageFilter)) setVillageFilter("all");
-    if (groupFilter !== "all" && !visibleGroups.some(item => item.id === groupFilter)) setGroupFilter("all");
-  }, [villageFilter, groupFilter, visibleVillages, visibleGroups]);
+    if (regionalRole && (!groupFilter || !workspace.groups.some(item => item.id === groupFilter))) setGroupFilter(workspace.groups[0]?.id ?? "");
+  }, [regionalRole, groupFilter, workspace.groups]);
   useEffect(() => {
-    if (classFilter !== "all" && !visibleClasses.some(item => item.id === classFilter)) setClassFilter("all");
-  }, [groupFilter, villageFilter, classFilter, visibleClasses]);
-  useEffect(() => { if (tab === "class" && classFilter === "all") setClassFilter(visibleClasses[0]?.id ?? "all"); }, [tab, classFilter, visibleClasses]);
+    if (!classFilter || !classesForGroup.some(item => item.id === classFilter)) setClassFilter(classesForGroup[0]?.id ?? "");
+  }, [groupFilter, classFilter, classesForGroup]);
 
-  const monthRows = attendance.filter((row) => row.session_date.startsWith(month));
-  const students = previewMode ? demoStudents.map((student) => ({ id: String(student.id), full_name: student.name, school_grade: student.grade === "PAUD" ? 0 : Number(student.grade.match(/\d/)?.[0] ?? 1), group_id: "demo" })) : workspace.students.filter((student) => student.status !== "archived" && allowedGroupIds.has(student.group_id));
-  const selectedIds = classFilter === "all" ? null : new Set(workspace.enrollments.filter(e => e.class_id === classFilter).map(e => e.student_id));
-  const studentStats = students.filter(s => !selectedIds || selectedIds.has(s.id)).map((student) => { const rows = monthRows.filter((row) => row.student_id === student.id && (classFilter === "all" || row.class_id === classFilter)); const present = rows.filter((row) => row.status === "hadir").length; return { student, total: rows.length, present, izin: rows.filter((row) => row.status === "izin").length, alpha: rows.filter((row) => row.status === "alpha").length, percent: rows.length ? Math.round((present / rows.length) * 100) : 0 }; });
-  const download = async (kind: "csv" | "print") => { if (kind === "print") { const reportClient = supabase; if (!previewMode && reportClient) { const classIds = classFilter === "all" ? visibleClasses.map((item) => item.id) : [classFilter]; await Promise.allSettled(classIds.map((classId) => reportClient.functions.invoke("analyze-monthly-journal", { body: { classId, month } }))); } window.print(); return; } const csv = ["Nama,Jenjang,Wajib hadir,Hadir,Izin,Alpha,Persentase", ...studentStats.map((item) => [item.student.full_name, gradeLabel(item.student.school_grade), item.total, item.present, item.izin, item.alpha, `${item.percent}%`].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n"); const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = `laporan-individu-${month}.csv`; link.click(); URL.revokeObjectURL(url); notify("Laporan CSV berhasil diunduh"); };
+  const selectedGroup = workspace.groups.find(item => item.id === groupFilter);
+  const selectedClass = workspace.classes.find(item => item.id === classFilter);
+  const selectedVillage = workspace.villages.find(item => item.id === selectedGroup?.village_id);
+  const monthRows = attendance.filter(row => row.session_date.startsWith(month) && row.class_id === classFilter);
+  const selectedIds = new Set(workspace.enrollments.filter(e => e.class_id === classFilter && !e.ended_on).map(e => e.student_id));
+  const students = previewMode
+    ? demoStudents.map(student => ({ id: String(student.id), full_name: student.name, school_grade: student.grade === "PAUD" ? 0 : Number(student.grade.match(/\d/)?.[0] ?? 1), group_id: "demo" }))
+    : workspace.students.filter(student => student.status !== "archived" && selectedIds.has(student.id));
+  const studentStats = students.map(student => {
+    const rows = monthRows.filter(row => row.student_id === student.id);
+    const present = rows.filter(row => row.status === "hadir").length;
+    return { student, total: rows.length, present, izin: rows.filter(row => row.status === "izin").length, alpha: rows.filter(row => row.status === "alpha").length, percent: rows.length ? Math.round((present / rows.length) * 100) : 0 };
+  });
+
+  const download = async (kind: "csv" | "print") => {
+    if (!classFilter) { notify("Pilih kelompok dan kelas terlebih dahulu"); return; }
+    if (kind === "print") {
+      const reportClient = supabase;
+      if (!previewMode && reportClient) await Promise.allSettled([reportClient.functions.invoke("analyze-monthly-journal", { body: { classId: classFilter, month } })]);
+      window.print();
+      return;
+    }
+    const csv = ["Nama,Jenjang,Wajib hadir,Hadir,Izin,Alpha,Persentase", ...studentStats.map(item => [item.student.full_name, gradeLabel(item.student.school_grade), item.total, item.present, item.izin, item.alpha, `${item.percent}%`].map(value => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laporan-${selectedClass?.name?.replaceAll(" ","-").toLowerCase() || "kelas"}-${month}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    notify("Laporan CSV berhasil diunduh");
+  };
+
   return <>
-    <PageHeader title="Laporan" subtitle={regionalRole ? "Filter wilayah, bulan, dan kelas sebelum membuat laporan" : "Pilih bulan dan kelas sebelum membuat laporan"} />
-    {regionalRole ? <div className="region-filter-grid report-region-filter">
-      {role === "Admin Daerah" ? <label><span>Desa</span><select value={villageFilter} onChange={(event) => { setVillageFilter(event.target.value); setGroupFilter("all"); setClassFilter("all"); }}><option value="all">Semua desa</option>{visibleVillages.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : null}
-      <label><span>Kelompok</span><select value={groupFilter} onChange={(event) => { setGroupFilter(event.target.value); setClassFilter("all"); }}><option value="all">Semua kelompok</option>{visibleGroups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+    <PageHeader title="Laporan" subtitle={regionalRole ? "Pilih kelompok, kelas, dan bulan. Laporan tidak mencampur data antar-kelompok." : "Pilih bulan dan kelas sebelum membuat laporan"} />
+    {regionalRole ? <div className="regional-scope-selector">
+      <label><span>Kelompok</span><select value={groupFilter} onChange={event => { setGroupFilter(event.target.value); setClassFilter(""); }}>{workspace.groups.map(group => { const village = workspace.villages.find(item => item.id === group.village_id); return <option key={group.id} value={group.id}>{role === "Admin Daerah" && village ? `${village.name} · ${group.name}` : group.name}</option>; })}</select></label>
+      <label><span>Kelas</span><select value={classFilter} onChange={event => setClassFilter(event.target.value)} disabled={!classesForGroup.length}>{classesForGroup.length ? classesForGroup.map(item => <option key={item.id} value={item.id}>{item.name}</option>) : <option value="">Belum ada kelas</option>}</select></label>
+      <div><span>Lingkup laporan</span><strong>{selectedClass?.name ?? "Pilih kelas"}</strong><small>{selectedVillage?.name ? `${selectedVillage.name} · ` : ""}{selectedGroup?.name ?? "Kelompok"}</small></div>
     </div> : null}
-    <div className="report-period-panel"><label><span>Bulan laporan</span><KeyboardInput type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label><label><span>Kelas</span><select value={classFilter} onChange={(event) => setClassFilter(event.target.value)}>{tab === "individual" ? <option value="all">Semua kelas</option> : null}{visibleClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><div className="report-period-note"><strong>Semua rekap dan file hanya memakai data bulan dan lingkup yang dipilih.</strong></div></div>
-    <div className="report-print-heading"><strong>ONE PRO JURNAL DIGITAL</strong><h1>Laporan Bulanan</h1><p>Rekap presensi dan perkembangan pembelajaran · {month}</p></div>
+    <div className="report-period-panel"><label><span>Bulan laporan</span><KeyboardInput type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>{!regionalRole ? <label><span>Kelas</span><select value={classFilter} onChange={(event) => setClassFilter(event.target.value)}>{classesForGroup.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : <div className="report-period-note"><strong>{selectedClass?.name ?? "Kelas belum dipilih"}</strong></div>}<div className="report-period-note"><strong>Semua rekap dan file hanya memakai data bulan, kelompok, dan kelas yang dipilih.</strong></div></div>
+    <div className="report-print-heading"><strong>ONE PRO JURNAL DIGITAL</strong><h1>Laporan Bulanan</h1><p>{selectedGroup?.name ? `${selectedGroup.name} · ` : ""}{selectedClass?.name ?? "Kelas"} · {month}</p></div>
     <div className="segmented"><button className={cx(tab === "individual" && "active")} onClick={() => setTab("individual")}>Individu</button><button className={cx(tab === "class" && "active")} onClick={() => setTab("class")}>Laporan Kelas</button></div>
-    {tab === "individual" ? <><div className="report-actions"><button className="secondary-button" onClick={() => void download("csv")}><DownloadSimple size={17} />CSV</button><button className="secondary-button" onClick={() => void download("print")}><DownloadSimple size={17} />Cetak</button></div><div className="student-report-list">{studentStats.length ? studentStats.map((item) => <section className="student-report data-card" key={item.student.id}><div className="student-mini"><Avatar initials={initialsFor(item.student.full_name)} /><span><strong>{item.student.full_name}</strong><small>{gradeLabel(item.student.school_grade)}</small></span><b>{item.percent}%</b></div><div className="report-stats"><Metric value={String(item.total)} label="Wajib hadir" /><Metric value={String(item.present)} label="Hadir" /><Metric value={String(item.izin)} label="Izin" /><Metric value={String(item.alpha)} label="Alpha" /></div><div className="progress-track"><span style={{ width: `${item.percent}%` }} /></div></section>) : <EmptyState icon={<ChartLineUp size={30} />} title="Belum ada data presensi" text="Belum ada data pada lingkup dan bulan yang dipilih." />}</div></> : <>{classFilter !== "all" ? <><ProfessionalWordReport notify={notify} workspace={workspace} month={month} classId={classFilter} previewMode={previewMode} /><ProfessionalPptReport notify={notify} workspace={workspace} month={month} classId={classFilter} previewMode={previewMode} />{role === "PJ Kelompok" || role === "Pengajar" ? <PptTemplateManager notify={notify} workspace={workspace} classId={classFilter} previewMode={previewMode} /> : null}</> : <EmptyState icon={<ChartLineUp size={30}/>} title="Pilih kelas" text="Pilih satu kelas untuk membuat laporan Word atau PowerPoint." />}</>}
+    {!classFilter ? <EmptyState icon={<ChartLineUp size={30}/>} title="Belum ada kelas" text="Pilih kelompok yang sudah memiliki kelas." /> : tab === "individual" ? <><div className="report-actions"><button className="secondary-button" onClick={() => void download("csv")}><DownloadSimple size={17} />CSV</button><button className="secondary-button" onClick={() => void download("print")}><DownloadSimple size={17} />Cetak</button></div><div className="student-report-list">{studentStats.length ? studentStats.map((item) => <section className="student-report data-card" key={item.student.id}><div className="student-mini"><Avatar initials={initialsFor(item.student.full_name)} /><span><strong>{item.student.full_name}</strong><small>{gradeLabel(item.student.school_grade)}</small></span><b>{item.percent}%</b></div><div className="report-stats"><Metric value={String(item.total)} label="Wajib hadir" /><Metric value={String(item.present)} label="Hadir" /><Metric value={String(item.izin)} label="Izin" /><Metric value={String(item.alpha)} label="Alpha" /></div><div className="progress-track"><span style={{ width: `${item.percent}%` }} /></div></section>) : <EmptyState icon={<ChartLineUp size={30} />} title="Belum ada data presensi" text="Belum ada data pada kelas dan bulan yang dipilih." />}</div></> : <><ProfessionalWordReport notify={notify} workspace={workspace} month={month} classId={classFilter} previewMode={previewMode} /><ProfessionalPptReport notify={notify} workspace={workspace} month={month} classId={classFilter} previewMode={previewMode} />{role === "PJ Kelompok" || role === "Pengajar" ? <PptTemplateManager notify={notify} workspace={workspace} classId={classFilter} previewMode={previewMode} /> : null}</>}
   </>;
 }
 
