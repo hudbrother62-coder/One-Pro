@@ -21,7 +21,8 @@ export type WorkspaceStudent = {
 
 export type WorkspaceClass = { id: string; group_id: string; name: string; description: string | null; is_active: boolean };
 export type WorkspaceGroup = { id: string; village_id: string; name: string; study_days: number[]; reminder_time: string };
-export type WorkspaceSchedule = { id: string; class_id: string; weekday: number; start_time: string; end_time: string; material_plan: string | null; is_active: boolean };
+export type WorkspaceSchedule = { id: string; class_id: string; weekday: number; start_time: string; end_time: string; material_plan: string | null; is_active: boolean; schedule_type: "weekly" | "once"; schedule_date: string | null };
+export type WorkspaceScheduleException = { id: string; schedule_id: string; exception_date: string; reason: string | null };
 export type WorkspaceEnrollment = { id: string; class_id: string; student_id: string; ended_on: string | null };
 export type WorkspaceTarget = { id: string; version_id: string; school_grade: number; code: string | null; title: string; description: string | null; target_value: number | null; target_unit: string | null; sort_order: number };
 export type ChatThread = { id: string; title: string | null; group_id: string | null; created_at: string; is_announcement: boolean };
@@ -48,31 +49,34 @@ export type WorkspaceData = {
   classes: WorkspaceClass[];
   students: WorkspaceStudent[];
   schedules: WorkspaceSchedule[];
+  scheduleExceptions: WorkspaceScheduleException[];
   enrollments: WorkspaceEnrollment[];
   areas: WorkspaceArea[];
   villages: WorkspaceVillage[];
 };
 
-export const emptyWorkspace: WorkspaceData = { groups: [], classes: [], students: [], schedules: [], enrollments: [], areas: [], villages: [] };
+export const emptyWorkspace: WorkspaceData = { groups: [], classes: [], students: [], schedules: [], scheduleExceptions: [], enrollments: [], areas: [], villages: [] };
 
 export async function loadWorkspace(): Promise<WorkspaceData> {
   if (!supabase) return emptyWorkspace;
-  const [areas, villages, groups, classes, students, schedules, enrollments] = await Promise.all([
+  const [areas, villages, groups, classes, students, schedules, scheduleExceptions, enrollments] = await Promise.all([
     supabase.from("areas").select("id,name").order("name"),
     supabase.from("villages").select("id,area_id,name").order("name"),
     supabase.from("groups").select("id,village_id,name,study_days,reminder_time").order("name"),
     supabase.from("classes").select("id,group_id,name,description,is_active").order("name"),
     supabase.from("students").select("id,group_id,full_name,nickname,birth_place,birth_date,address,phone,father_name,mother_name,father_phone,mother_phone,school_grade,photo_path,show_photo,status").neq("status", "archived").order("full_name"),
-    supabase.from("schedules").select("id,class_id,weekday,start_time,end_time,material_plan,is_active").eq("is_active", true).order("start_time"),
+    supabase.from("schedules").select("id,class_id,weekday,start_time,end_time,material_plan,is_active,schedule_type,schedule_date").eq("is_active", true).order("start_time"),
+    supabase.from("schedule_exceptions").select("id,schedule_id,exception_date,reason").order("exception_date"),
     supabase.from("class_enrollments").select("id,class_id,student_id,ended_on").is("ended_on", null),
   ]);
-  const error = areas.error || villages.error || groups.error || classes.error || students.error || schedules.error || enrollments.error;
+  const error = areas.error || villages.error || groups.error || classes.error || students.error || schedules.error || scheduleExceptions.error || enrollments.error;
   if (error) throw error;
   return {
     groups: (groups.data ?? []) as WorkspaceGroup[],
     classes: (classes.data ?? []) as WorkspaceClass[],
     students: (students.data ?? []) as WorkspaceStudent[],
     schedules: (schedules.data ?? []) as WorkspaceSchedule[],
+    scheduleExceptions: (scheduleExceptions.data ?? []) as WorkspaceScheduleException[],
     enrollments: (enrollments.data ?? []) as WorkspaceEnrollment[],
     areas: (areas.data ?? []) as WorkspaceArea[],
     villages: (villages.data ?? []) as WorkspaceVillage[],
@@ -146,9 +150,20 @@ export async function saveClass(input: { id?: string; groupId: string; name: str
   if (error) throw error;
 }
 
-export async function saveSchedule(input: { id?: string; classId: string; teacherId?: string; weekday: number; startTime: string; endTime: string; materialPlan?: string }) {
+export async function saveSchedule(input: { id?: string; classId: string; teacherId?: string; weekday: number; startTime: string; endTime: string; materialPlan?: string; scheduleType: "weekly" | "once"; scheduleDate?: string | null }) {
   if (!supabase) throw new Error("Supabase belum terhubung");
-  const payload = { class_id: input.classId, teacher_id: input.teacherId || null, weekday: input.weekday, start_time: input.startTime, end_time: input.endTime, material_plan: input.materialPlan?.trim() || null, is_active: true, updated_at: new Date().toISOString() };
+  const payload = {
+    class_id: input.classId,
+    teacher_id: input.teacherId || null,
+    weekday: input.weekday,
+    start_time: input.startTime,
+    end_time: input.endTime,
+    material_plan: input.materialPlan?.trim() || null,
+    schedule_type: input.scheduleType,
+    schedule_date: input.scheduleType === "once" ? input.scheduleDate || null : null,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  };
   const query = input.id ? supabase.from("schedules").update(payload).eq("id", input.id) : supabase.from("schedules").insert(payload);
   const { error } = await query;
   if (error) throw error;
@@ -157,6 +172,23 @@ export async function saveSchedule(input: { id?: string; classId: string; teache
 export async function deleteSchedule(id: string) {
   if (!supabase) throw new Error("Supabase belum terhubung");
   const { error } = await supabase.from("schedules").update({ is_active: false, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function skipScheduleDate(input: { scheduleId: string; date: string; userId?: string; reason?: string }) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const { error } = await supabase.from("schedule_exceptions").upsert({
+    schedule_id: input.scheduleId,
+    exception_date: input.date,
+    created_by: input.userId || null,
+    reason: input.reason?.trim() || null,
+  }, { onConflict: "schedule_id,exception_date" });
+  if (error) throw error;
+}
+
+export async function restoreScheduleDate(scheduleId: string, date: string) {
+  if (!supabase) throw new Error("Supabase belum terhubung");
+  const { error } = await supabase.from("schedule_exceptions").delete().eq("schedule_id", scheduleId).eq("exception_date", date);
   if (error) throw error;
 }
 
