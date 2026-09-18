@@ -133,3 +133,9 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Mobile preserves 44px-class touch targets, left navigation drawer plus quick bottom navigation, readable text, one-column forms, compact calendar cells, and horizontally scrollable data only where a true table cannot fit.
 - Reuse the same border, radius, spacing, field, tab, button, card, and empty-state language across every feature. Strong elevation is reserved for floating overlays, drawers, modals, and toasts.
 - On report screens, month/class selection is visually primary; Word and PPT outputs form a matched pair on desktop and stack on mobile.
+
+
+## Scroll behavior decision — 2026-09-18
+
+- Any navigation or data collection that can grow substantially must remain scrollable instead of clipping or stretching the layout without bound. This includes desktop/mobile navigation, student/team/target lists, class rosters, attendance entry and recap, report lists, journal student assessments, AI result detail, agenda lists, chat contacts/messages, and long modals.
+- Use vertical scrolling for long collections, horizontal scrolling only for genuine wide table-like content, and preserve natural page scrolling on mobile outside bounded high-density regions. Use themed thin scrollbars and overscroll containment.
