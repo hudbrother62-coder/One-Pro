@@ -550,14 +550,18 @@ function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage
   };
 
   const removeWholeSchedule = async (item: WorkspaceData["schedules"][number]) => {
-    if (previewMode) return;
+    if (previewMode) return false;
     const label = item.schedule_type === "weekly" ? "Hapus jadwal rutin ini untuk semua minggu berikutnya?" : "Hapus jadwal pada tanggal ini?";
-    if (!window.confirm(label)) return;
+    if (!window.confirm(label)) return false;
     try {
       await deleteSchedule(item.id);
       await refresh();
       notify(item.schedule_type === "weekly" ? "Jadwal rutin dihapus" : "Jadwal dihapus");
-    } catch (error) { notify(error instanceof Error ? error.message : "Jadwal gagal dihapus"); }
+      return true;
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Jadwal gagal dihapus");
+      return false;
+    }
   };
 
   const skipOccurrence = async (item: WorkspaceData["schedules"][number]) => {
@@ -625,7 +629,7 @@ function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage
       <label className="field"><span>Materi / kegiatan</span><KeyboardTextarea value={materialPlan} onChange={(event) => setMaterialPlan(event.target.value)} rows={3} placeholder="Materi atau kegiatan yang dijadwalkan" /></label>
       <div className="schedule-editor-note"><CalendarBlank size={18}/><span><strong>{scheduleType === "weekly" ? "Jadwal rutin" : "Jadwal satu tanggal"}</strong><small>{scheduleType === "weekly" ? "Jika suatu tanggal libur, gunakan “Lewati tanggal ini”. Minggu lain tidak berubah." : "Menghapus jadwal ini hanya menghapus kegiatan pada tanggal tersebut."}</small></span></div>
       <div className="editor-actions">
-        {editingScheduleId ? <button className="danger-button" onClick={() => { const item=classSchedule.find(row=>row.id===editingScheduleId); if(item) void removeWholeSchedule(item).then(()=>{setOpen(null);resetEditor();}); }}><Trash size={16}/>Hapus</button> : null}
+        {editingScheduleId ? <button className="danger-button" onClick={() => { const item=classSchedule.find(row=>row.id===editingScheduleId); if(item) void removeWholeSchedule(item).then((removed)=>{if(removed){setOpen(null);resetEditor();}}); }}><Trash size={16}/>Hapus</button> : null}
         <button className="secondary-button" onClick={() => {setOpen(null);resetEditor();}}>Batal</button>
         <button className="primary-button" disabled={saving || !classId} onClick={() => void submitSchedule()}>{saving ? "Menyimpan…" : editingScheduleId ? "Simpan perubahan" : "Simpan agenda"}</button>
       </div>
