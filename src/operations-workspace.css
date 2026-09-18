@@ -133,51 +133,29 @@
   .ops-modal-backdrop{padding-left:8px!important;padding-right:8px!important}
   .ops-modal{width:100%!important;border-radius:15px!important}
 }
-/* OPERATIONS DATA SCROLL SYSTEM — 2026-09-18 */
-.class-card-list,.roster-list,.attendance-student-list,.individual-recap-table{
+
+/* OPERATIONS SAFE SCROLL — 2026-09-18 */
+.class-card-list,.roster-list,.attendance-student-list{
+  max-height:none!important;
+  overflow:visible!important;
+  overscroll-behavior:auto!important;
+}
+.individual-recap-table{
+  max-height:none!important;
+  overflow-x:auto!important;
+  overflow-y:visible!important;
+  -webkit-overflow-scrolling:touch;
   scrollbar-width:thin;
   scrollbar-color:var(--scroll-thumb,color-mix(in srgb,var(--muted) 34%,transparent)) transparent;
-  overscroll-behavior:contain;
-  -webkit-overflow-scrolling:touch;
-}
-.class-card-list::-webkit-scrollbar,.roster-list::-webkit-scrollbar,.attendance-student-list::-webkit-scrollbar,.individual-recap-table::-webkit-scrollbar{width:7px;height:7px}
-.class-card-list::-webkit-scrollbar-thumb,.roster-list::-webkit-scrollbar-thumb,.attendance-student-list::-webkit-scrollbar-thumb,.individual-recap-table::-webkit-scrollbar-thumb{
-  border-radius:999px;background:var(--scroll-thumb,color-mix(in srgb,var(--muted) 34%,transparent));border:2px solid transparent;background-clip:padding-box
-}
-@media(min-width:761px){
-  .class-card-list{
-    max-height:min(64dvh,700px)!important;
-    overflow-y:auto!important;
-    overflow-x:hidden!important;
-  }
-  .roster-list{
-    max-height:min(52dvh,560px)!important;
-    overflow-y:auto!important;
-    overflow-x:hidden!important;
-  }
-  .attendance-student-list{
-    max-height:min(58dvh,620px)!important;
-    overflow-y:auto!important;
-    overflow-x:hidden!important;
-  }
-  .individual-recap-table{
-    max-height:min(62dvh,660px)!important;
-    overflow:auto!important;
-  }
 }
 @media(max-width:760px){
   .class-card-list{
+    display:flex!important;
+    max-width:100%;
     overflow-x:auto!important;
     overflow-y:hidden!important;
-    max-height:none!important;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
   }
-  .roster-list,.attendance-student-list{
-    max-height:min(58dvh,560px)!important;
-    overflow-y:auto!important;
-    overflow-x:hidden!important;
-  }
-  .individual-recap-table{
-    max-height:min(62dvh,600px)!important;
-    overflow:auto!important;
-  }
+  .class-card-list>button{scroll-snap-align:start}
 }
