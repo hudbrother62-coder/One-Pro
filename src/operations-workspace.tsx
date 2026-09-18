@@ -34,7 +34,10 @@ export function StudentDatabaseHub({ children, notify, workspace, refresh, role,
 
 function ClassDatabase({ notify, workspace, refresh, role, previewMode }: { notify: (message: string) => void; workspace: WorkspaceData; refresh: () => Promise<void>; role: Role; previewMode: boolean }) {
   const canManage = role === "PJ Kelompok";
-  const [selectedClassId, setSelectedClassId] = useState(workspace.classes.find(item => item.is_active)?.id ?? "");
+  const regionalRole = role === "Admin Daerah" || role === "Admin Desa";
+  const [selectedGroupId, setSelectedGroupId] = useState(workspace.groups[0]?.id ?? "");
+  const scopedClasses = workspace.classes.filter(item => item.is_active && (!regionalRole || item.group_id === selectedGroupId));
+  const [selectedClassId, setSelectedClassId] = useState(scopedClasses[0]?.id ?? "");
   const [roster, setRoster] = useState<string[]>([]);
   const [accounts, setAccounts] = useState<WorkspaceAccount[]>([]);
   const [teacherLinks, setTeacherLinks] = useState<TeacherLink[]>([]);
@@ -45,6 +48,13 @@ function ClassDatabase({ notify, workspace, refresh, role, previewMode }: { noti
   const [classDescription, setClassDescription] = useState("");
   const selectedClass = workspace.classes.find(item => item.id === selectedClassId);
 
+  useEffect(() => {
+    if (regionalRole && (!selectedGroupId || !workspace.groups.some(item => item.id === selectedGroupId))) setSelectedGroupId(workspace.groups[0]?.id ?? "");
+  }, [regionalRole, selectedGroupId, workspace.groups]);
+  useEffect(() => {
+    if (!selectedClassId || !scopedClasses.some(item => item.id === selectedClassId)) setSelectedClassId(scopedClasses[0]?.id ?? "");
+  }, [selectedGroupId, selectedClassId, scopedClasses]);
+
   const reloadLinks = async () => {
     if (previewMode || !supabase) return;
     const [accountRows, links] = await Promise.all([loadAccounts(), supabase.from("class_teachers").select("class_id,user_id,is_lead")]);
@@ -54,12 +64,11 @@ function ClassDatabase({ notify, workspace, refresh, role, previewMode }: { noti
   };
   useEffect(() => { void reloadLinks().catch(error => notify(error instanceof Error ? error.message : "Data guru gagal dimuat")); }, [previewMode, workspace.classes.length]);
   useEffect(() => {
-    if (!selectedClassId && workspace.classes[0]) setSelectedClassId(workspace.classes[0].id);
     const current = workspace.enrollments.filter(item => item.class_id === selectedClassId && !item.ended_on).map(item => item.student_id);
     setRoster(current);
     const lead = teacherLinks.find(item => item.class_id === selectedClassId && item.is_lead);
     setTeacherId(lead?.user_id ?? "");
-  }, [selectedClassId, workspace.enrollments, teacherLinks, workspace.classes]);
+  }, [selectedClassId, workspace.enrollments, teacherLinks]);
 
   const currentEnrollmentByStudent = useMemo(() => new Map(workspace.enrollments.filter(item => !item.ended_on).map(item => [item.student_id, item.class_id])), [workspace.enrollments]);
   const candidates = workspace.students.filter(student => student.status === "active" && (!selectedClass?.group_id || student.group_id === selectedClass.group_id));
@@ -95,14 +104,18 @@ function ClassDatabase({ notify, workspace, refresh, role, previewMode }: { noti
     finally { setSaving(false); }
   };
 
+  const selectedGroup = workspace.groups.find(item => item.id === selectedGroupId);
+  const selectedVillage = workspace.villages.find(item => item.id === selectedGroup?.village_id);
+
   return <section className="class-database-workspace">
-    <div className="workspace-heading"><div><span>DATABASE KELAS</span><h1>Pembagian Kelas</h1><p>Satu anak hanya dapat berada pada satu kelas aktif. PJ Kelompok menentukan siswa dan guru penanggung jawab.</p></div>{canManage ? <button className="workspace-add" onClick={() => setNewClassOpen(true)}><Plus size={18}/>Tambah kelas</button> : null}</div>
+    <div className="workspace-heading"><div><span>DATABASE KELAS</span><h1>Pembagian Kelas</h1><p>{regionalRole ? "Pilih kelompok lalu kelas untuk melihat pembagian siswa dan guru." : "Satu anak hanya dapat berada pada satu kelas aktif. PJ Kelompok menentukan siswa dan guru penanggung jawab."}</p></div>{canManage ? <button className="workspace-add" onClick={() => setNewClassOpen(true)}><Plus size={18}/>Tambah kelas</button> : null}</div>
+    {regionalRole ? <div className="ops-scope-filter"><label><span>Kelompok</span><select value={selectedGroupId} onChange={event=>{setSelectedGroupId(event.target.value);setSelectedClassId("");}}>{workspace.groups.map(group=>{const village=workspace.villages.find(item=>item.id===group.village_id);return <option key={group.id} value={group.id}>{role==="Admin Daerah"&&village?`${village.name} · ${group.name}`:group.name}</option>})}</select></label><div><span>Lingkup</span><strong>{selectedGroup?.name??"Pilih kelompok"}</strong><small>{selectedVillage?.name??""}</small></div></div> : null}
     <div className="class-workspace-grid">
-      <aside className="class-card-list">{workspace.classes.filter(item=>item.is_active).map(klass => { const count=workspace.enrollments.filter(item=>item.class_id===klass.id&&!item.ended_on).length; const lead=teacherLinks.find(item=>item.class_id===klass.id&&item.is_lead); const teacher=accounts.find(item=>item.user_id===lead?.user_id); return <button key={klass.id} className={cx(selectedClassId===klass.id&&"active")} onClick={()=>setSelectedClassId(klass.id)}><span className="class-card-icon"><Users size={18}/></span><span><strong>{klass.name}</strong><small>{count} siswa · {teacher?.full_name || "Guru belum ditetapkan"}</small></span></button>; })}{!workspace.classes.length ? <div className="class-empty">Belum ada kelas.</div> : null}</aside>
+      <aside className="class-card-list" data-scroll-drag="ignore">{scopedClasses.map(klass => { const count=workspace.enrollments.filter(item=>item.class_id===klass.id&&!item.ended_on).length; const lead=teacherLinks.find(item=>item.class_id===klass.id&&item.is_lead); const teacher=accounts.find(item=>item.user_id===lead?.user_id); return <button key={klass.id} className={cx(selectedClassId===klass.id&&"active")} onClick={()=>setSelectedClassId(klass.id)}><span className="class-card-icon"><Users size={18}/></span><span><strong>{klass.name}</strong><small>{count} siswa · {teacher?.full_name || "Guru belum ditetapkan"}</small></span></button>; })}{!scopedClasses.length ? <div className="class-empty">Belum ada kelas pada kelompok ini.</div> : null}</aside>
       <div className="class-roster-panel">{selectedClass ? <><header><div><span>KELAS AKTIF</span><h2>{selectedClass.name}</h2></div><b>{roster.length} siswa</b></header>
         <label className="class-teacher-field"><span>Guru penanggung jawab</span><select value={teacherId} disabled={!canManage} onChange={event=>setTeacherId(event.target.value)}><option value="">Belum ditentukan</option>{teachers.map(teacher=><option key={teacher.user_id} value={teacher.user_id} disabled={teacherCount(teacher.user_id)>=2}>{teacher.full_name}{teacherCount(teacher.user_id)>=2?" · sudah 2 kelas":""}</option>)}</select><small>Setiap guru maksimal memegang 2 kelas.</small></label>
-        <div className="roster-list"><div className="roster-list-head"><strong>Pilih siswa dari database utama</strong><small>{candidates.length} siswa aktif di kelompok</small></div>{candidates.map(student=>{ const activeClassId=currentEnrollmentByStudent.get(student.id); const locked=Boolean(activeClassId&&activeClassId!==selectedClassId); const other=workspace.classes.find(item=>item.id===activeClassId); return <label key={student.id} className={cx("roster-row",locked&&"locked")}><input type="checkbox" checked={roster.includes(student.id)} disabled={!canManage||locked} onChange={()=>toggleStudent(student.id)}/><span className="roster-avatar">{initials(student.full_name)}</span><span><strong>{student.full_name}</strong><small>{locked?`Sudah di ${other?.name||"kelas lain"}`:"Tersedia untuk kelas ini"}</small></span>{locked?<em>Terkunci</em>:null}</label>; })}</div>
-        {canManage ? <button className="save-class-roster" disabled={saving} onClick={()=>void saveRoster()}><Check size={18}/>{saving?"Menyimpan…":"Simpan pembagian kelas"}</button> : null}</> : <div className="class-empty">Pilih kelas terlebih dahulu.</div>}</div>
+        <div className="roster-list"><div className="roster-list-head"><strong>{canManage?"Pilih siswa dari database utama":"Siswa pada kelas ini"}</strong><small>{candidates.length} siswa aktif di kelompok</small></div>{candidates.map(student=>{ const activeClassId=currentEnrollmentByStudent.get(student.id); const locked=Boolean(activeClassId&&activeClassId!==selectedClassId); const other=workspace.classes.find(item=>item.id===activeClassId); const inThisClass=roster.includes(student.id); if(!canManage&&!inThisClass)return null; return <label key={student.id} className={cx("roster-row",locked&&"locked")}><input type="checkbox" checked={inThisClass} disabled={!canManage||locked} onChange={()=>toggleStudent(student.id)}/><span className="roster-avatar">{initials(student.full_name)}</span><span><strong>{student.full_name}</strong><small>{locked?`Sudah di ${other?.name||"kelas lain"}`:inThisClass?"Terdaftar di kelas ini":"Tersedia untuk kelas ini"}</small></span>{locked?<em>Terkunci</em>:null}</label>; })}</div>
+        {canManage ? <button className="save-class-roster" disabled={saving} onClick={()=>void saveRoster()}><Check size={18}/>{saving?"Menyimpan…":"Simpan pembagian kelas"}</button> : null}</> : <div className="class-empty">Pilih kelompok yang memiliki kelas.</div>}</div>
     </div>
     {newClassOpen ? <div className="ops-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setNewClassOpen(false)}}><section className="ops-modal"><header><div><span>KELAS BARU</span><h2>Tambah kelas</h2></div><button onClick={()=>setNewClassOpen(false)}><X size={18}/></button></header><label><span>Nama kelas</span><KeyboardInput value={className} onChange={event=>setClassName(event.target.value)} placeholder="Contoh: Kelas Tilawati A"/></label><label><span>Keterangan</span><KeyboardInput value={classDescription} onChange={event=>setClassDescription(event.target.value)} placeholder="Opsional"/></label><button className="save-class-roster" disabled={saving||!className.trim()} onClick={()=>void addClass()}>{saving?"Menyimpan…":"Buat kelas"}</button></section></div> : null}
   </section>;
