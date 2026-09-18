@@ -608,15 +608,29 @@ function Students({ notify, workspace, refresh, previewMode, role }: { notify: (
   const [editing, setEditing] = useState<WorkspaceStudent | "new" | null>(null);
   const [saving, setSaving] = useState(false);
   const canManage = role === "PJ Kelompok";
-  const liveStudents = previewMode ? demoStudents.map((student) => ({ id: String(student.id), group_id: "demo", full_name: student.name, nickname: null, birth_place: null, birth_date: null, address: null, phone: null, father_name: null, mother_name: null, father_phone: null, mother_phone: null, school_grade: student.grade === "PAUD" ? 0 : Number(student.grade.match(/\d/)?.[0] ?? 1), photo_path: null, show_photo: true, status: student.active ? "active" as const : "inactive" as const })) : workspace.students;
-  const filtered = useMemo(() => liveStudents.filter((student) => student.full_name.toLowerCase().includes(query.toLowerCase())), [liveStudents, query]);
-  const activeCount = liveStudents.filter((student) => student.status === "active").length;
-  const inactiveCount = liveStudents.filter((student) => student.status !== "active").length;
+  const regionalRole = role === "Admin Daerah" || role === "Admin Desa";
+  const [groupFilter, setGroupFilter] = useState(workspace.groups[0]?.id ?? "");
+  useEffect(() => {
+    if (regionalRole && (!groupFilter || !workspace.groups.some(item => item.id === groupFilter))) setGroupFilter(workspace.groups[0]?.id ?? "");
+  }, [regionalRole, groupFilter, workspace.groups]);
+
+  const allStudents = previewMode ? demoStudents.map((student) => ({ id: String(student.id), group_id: "demo", full_name: student.name, nickname: null, birth_place: null, birth_date: null, address: null, phone: null, father_name: null, mother_name: null, father_phone: null, mother_phone: null, school_grade: student.grade === "PAUD" ? 0 : Number(student.grade.match(/\d/)?.[0] ?? 1), photo_path: null, show_photo: true, status: student.active ? "active" as const : "inactive" as const })) : workspace.students;
+  const liveStudents = regionalRole ? allStudents.filter(student => student.group_id === groupFilter) : allStudents;
+  const filtered = useMemo(() => liveStudents.filter(student => student.full_name.toLowerCase().includes(query.toLowerCase())), [liveStudents, query]);
+  const activeCount = liveStudents.filter(student => student.status === "active").length;
+  const inactiveCount = liveStudents.filter(student => student.status !== "active").length;
+  const selectedGroup = workspace.groups.find(item => item.id === groupFilter);
+  const selectedVillage = workspace.villages.find(item => item.id === selectedGroup?.village_id);
+
   return <>
-    <PageHeader title="Database Anak" subtitle={`${activeCount} aktif • ${inactiveCount} nonaktif`} action={canManage ? <button className="primary-icon" onClick={() => setEditing("new")} aria-label="Tambah anak"><Plus size={20} /></button> : undefined} />
+    <PageHeader title="Database Anak" subtitle={regionalRole ? `${selectedGroup?.name ?? "Kelompok"} · ${activeCount} aktif · ${inactiveCount} nonaktif` : `${activeCount} aktif • ${inactiveCount} nonaktif`} action={canManage ? <button className="primary-icon" onClick={() => setEditing("new")} aria-label="Tambah anak"><Plus size={20} /></button> : undefined} />
+    {regionalRole ? <div className="regional-scope-selector one-column">
+      <label><span>Kelompok</span><select value={groupFilter} onChange={event=>setGroupFilter(event.target.value)}>{workspace.groups.map(group=>{const village=workspace.villages.find(item=>item.id===group.village_id);return <option key={group.id} value={group.id}>{role==="Admin Daerah"&&village?`${village.name} · ${group.name}`:group.name}</option>})}</select></label>
+      <div><span>Data yang ditampilkan</span><strong>{selectedGroup?.name ?? "Pilih kelompok"}</strong><small>{selectedVillage?.name ?? ""}</small></div>
+    </div> : null}
     <div className="toolbar"><label className="search"><MagnifyingGlass size={17} /><KeyboardInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama anak" /></label><button className={cx("photo-toggle", showPhotos && "active")} onClick={() => setShowPhotos((value) => !value)}><UserCircle size={18} />Foto</button></div>
-    {filtered.length ? <div className="student-list">{filtered.map((student) => <button className="student-row" key={student.id} onClick={() => { if (canManage) setEditing(student); }} aria-label={canManage ? `Edit ${student.full_name}` : `Data ${student.full_name}`}>{showPhotos && student.show_photo ? <Avatar initials={initialsFor(student.full_name)} muted={student.status !== "active"} /> : null}<span><strong>{student.full_name}</strong><small>{gradeLabel(student.school_grade)} • {student.status === "active" ? "Aktif" : "Nonaktif — riwayat tetap tersimpan"}</small></span>{canManage ? <PencilSimple size={17} /> : null}</button>)}</div> : <EmptyState icon={<Student size={30} />} title="Belum ada data anak" text={canManage ? "Tambahkan anak atau impor data Excel." : "Belum ada data siswa pada wilayah yang dapat dipantau."} />}
-    {canManage ? <div className="split-actions"><button className="secondary-button" onClick={() => notify("Template Excel siap diunduh")}><DownloadSimple size={17} />Template</button><button className="secondary-button" onClick={() => notify("Pilih file Excel untuk diimpor")}><UploadSimple size={17} />Import</button></div> : <div className="info-callout"><WarningCircle size={18}/><span><strong>Mode monitoring</strong><small>Perubahan data anak dilakukan oleh PJ Kelompok. Akun wilayah melihat data sesuai naungannya.</small></span></div>}
+    {filtered.length ? <div className="student-list">{filtered.map((student) => <button className="student-row" key={student.id} onClick={() => { if (canManage) setEditing(student); }} aria-label={canManage ? `Edit ${student.full_name}` : `Data ${student.full_name}`}>{showPhotos && student.show_photo ? <Avatar initials={initialsFor(student.full_name)} muted={student.status !== "active"} /> : null}<span><strong>{student.full_name}</strong><small>{gradeLabel(student.school_grade)} • {student.status === "active" ? "Aktif" : "Nonaktif — riwayat tetap tersimpan"}</small></span>{canManage ? <PencilSimple size={17} /> : null}</button>)}</div> : <EmptyState icon={<Student size={30} />} title="Belum ada data anak" text={canManage ? "Tambahkan anak atau impor data Excel." : "Belum ada data siswa pada kelompok yang dipilih."} />}
+    {canManage ? <div className="split-actions"><button className="secondary-button" onClick={() => notify("Template Excel siap diunduh")}><DownloadSimple size={17} />Template</button><button className="secondary-button" onClick={() => notify("Pilih file Excel untuk diimpor")}><UploadSimple size={17} />Import</button></div> : <div className="info-callout"><WarningCircle size={18}/><span><strong>Mode monitoring</strong><small>Perubahan data anak dilakukan oleh PJ Kelompok. Admin wilayah memantau per kelompok.</small></span></div>}
     {canManage && editing ? <StudentEditor student={editing === "new" ? null : editing} groups={workspace.groups} saving={saving} onClose={() => setEditing(null)} onSave={async (values) => {
       if (previewMode) { notify("Mode pratinjau: data tidak disimpan"); setEditing(null); return; }
       setSaving(true);
