@@ -1159,3 +1159,32 @@ button { -webkit-tap-highlight-color: transparent; }
     padding-bottom:0!important;
   }
 }
+/* MOBILE DRAWER SCROLL HARDENING — 2026-09-18 */
+@media(max-width:899px){
+  .mobile-nav-overlay{
+    position:fixed!important;
+    inset:0!important;
+    width:100vw!important;
+    height:100dvh!important;
+    overflow:hidden!important;
+  }
+  .mobile-nav-drawer{
+    height:100dvh!important;
+    max-height:100dvh!important;
+    min-height:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    overflow:hidden!important;
+    padding-top:max(12px,env(safe-area-inset-top))!important;
+    padding-bottom:max(12px,env(safe-area-inset-bottom))!important;
+  }
+  .mobile-nav-head,.mobile-nav-scope,.mobile-nav-logout{flex:0 0 auto}
+  .mobile-nav-list{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+}
