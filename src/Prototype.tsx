@@ -445,26 +445,39 @@ function Village({ rank, name, attendance, progress, status, warning }: { rank: 
   return <button className="village-row"><span className="rank">{rank}</span><span className="village-main"><strong>{name}</strong><small>Kehadiran {attendance} · Target {progress}</small></span><span className={cx("status", warning ? "warning" : "success")}>{status}</span><CaretRight size={16} /></button>;
 }
 
-function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage }: { notify: (message: string) => void; go: (screen: Screen) => void; workspace: WorkspaceData; refresh: () => Promise<void>; userId?: string; previewMode: boolean; canManage: boolean }) {
+function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage, role }: { notify: (message: string) => void; go: (screen: Screen) => void; workspace: WorkspaceData; refresh: () => Promise<void>; userId?: string; previewMode: boolean; canManage: boolean; role: Role }) {
   const today = new Date();
+  const regionalRole = role === "Admin Daerah" || role === "Admin Desa";
   const localDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   const dateFromKey = (key: string) => { const [year, month, day] = key.split("-").map(Number); return new Date(year, month - 1, day, 12, 0, 0); };
   const [activeDate, setActiveDate] = useState(localDateKey(today));
   const [open, setOpen] = useState<"schedule" | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [classId, setClassId] = useState(workspace.classes[0]?.id ?? "");
   const [groupId, setGroupId] = useState(workspace.groups[0]?.id ?? "");
-  const [className, setClassName] = useState("");
+  const visibleClasses = workspace.classes.filter(item => item.is_active && item.group_id === groupId);
+  const [classId, setClassId] = useState(visibleClasses[0]?.id ?? "");
   const [startTime, setStartTime] = useState("16:00");
   const [endTime, setEndTime] = useState("17:30");
   const [materialPlan, setMaterialPlan] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!groupId && workspace.groups[0]) setGroupId(workspace.groups[0].id);
+    if (groupId && !workspace.groups.some(item => item.id === groupId)) setGroupId(workspace.groups[0]?.id ?? "");
+  }, [groupId, workspace.groups]);
+  useEffect(() => {
+    if (!classId || !visibleClasses.some(item => item.id === classId)) setClassId(visibleClasses[0]?.id ?? "");
+  }, [groupId, classId, visibleClasses]);
+
+  const selectedGroup = workspace.groups.find(item => item.id === groupId);
+  const selectedClass = workspace.classes.find(item => item.id === classId);
+  const classSchedule = workspace.schedules.filter(item => item.is_active && item.class_id === classId);
   const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
   const gridStart = new Date(monthStart); gridStart.setDate(1 - monthStart.getDay());
   const days = Array.from({ length: 42 }, (_, index) => { const date = new Date(gridStart); date.setDate(gridStart.getDate() + index); return date; });
   const activeDay = dateFromKey(activeDate);
   const activeWeekday = activeDay.getDay();
-  const schedules = previewMode ? [] : workspace.schedules.filter((item) => item.is_active && item.weekday === activeWeekday);
+  const schedules = previewMode ? [] : classSchedule.filter(item => item.weekday === activeWeekday);
 
   const setSelectedDate = (key: string) => {
     const date = dateFromKey(key);
@@ -480,32 +493,44 @@ function Agenda({ notify, go, workspace, refresh, userId, previewMode, canManage
     setActiveDate(localDateKey(next));
   };
 
-  const submitClass = async () => {
-    if (previewMode) { notify("Mode pratinjau: kelas tidak disimpan"); setOpen(null); return; }
-    if (!groupId || !className.trim()) { notify("Nama kelas dan kelompok wajib diisi"); return; }
-    setSaving(true); try { await saveClass({ groupId, name: className }); await refresh(); notify("Kelas berhasil dibuat"); setClassName(""); setOpen(null); } catch (error) { notify(error instanceof Error ? error.message : "Kelas gagal dibuat"); } finally { setSaving(false); }
-  };
   const submitSchedule = async () => {
     if (previewMode) { notify("Mode pratinjau: jadwal tidak disimpan"); setOpen(null); return; }
-    if (!classId || !userId) { notify("Pilih kelas terlebih dahulu"); return; }
-    setSaving(true); try { await saveSchedule({ classId, teacherId: userId, weekday: activeWeekday, startTime, endTime, materialPlan }); await refresh(); notify("Jadwal berhasil disimpan"); setOpen(null); } catch (error) { notify(error instanceof Error ? error.message : "Jadwal gagal disimpan"); } finally { setSaving(false); }
+    if (!classId || !userId) { notify("Pilih kelompok dan kelas terlebih dahulu"); return; }
+    setSaving(true);
+    try {
+      await saveSchedule({ classId, teacherId: userId, weekday: activeWeekday, startTime, endTime, materialPlan });
+      await refresh();
+      notify("Jadwal berhasil disimpan");
+      setOpen(null);
+    } catch (error) { notify(error instanceof Error ? error.message : "Jadwal gagal disimpan"); }
+    finally { setSaving(false); }
   };
+
   return <>
-    <PageHeader title="Jadwal Mengaji" subtitle={canManage ? "Atur agenda rutin kelompok" : "Pantau agenda kelompok dalam satu bulan"} action={canManage ? <button className="primary-icon" onClick={() => { setClassId(workspace.classes[0]?.id ?? ""); setOpen("schedule"); }} aria-label="Tambah jadwal"><Plus size={20} /></button> : undefined} />
-    <section className="agenda-calendar-shell">
-      <div className="calendar-head"><button className="icon-button" onClick={() => moveMonth(-1)} aria-label="Bulan sebelumnya">‹</button><strong>{new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric"}).format(calendarMonth)}</strong><button className="icon-button" onClick={() => moveMonth(1)} aria-label="Bulan berikutnya">›</button></div>
-      <div className="month-calendar"><div className="calendar-weekdays">{["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(d=><span key={d}>{d}</span>)}</div><div className="calendar-grid">{days.map((date) => {
-        const key = localDateKey(date);
-        const daySchedules = workspace.schedules.filter((item) => item.is_active && item.weekday === date.getDay());
-        return <button key={key} className={cx(activeDate===key&&"active",localDateKey(today)===key&&"today",date.getMonth()!==calendarMonth.getMonth()&&"outside")} onClick={()=>setSelectedDate(key)} aria-label={new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(date)}>
-          <span className="calendar-date-number">{date.getDate()}</span>
-          {daySchedules.length ? <span className="calendar-agenda-preview">{daySchedules.slice(0,2).map((item) => { const klass = workspace.classes.find((candidate) => candidate.id === item.class_id); return <em key={item.id}>{klass?.name ?? "Agenda"}</em>; })}{daySchedules.length > 2 ? <small>+{daySchedules.length - 2}</small> : null}</span> : null}
-        </button>;
-      })}</div></div>
-    </section>
-    <SectionTitle title={`${schedules.length} agenda • ${new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(activeDay)}`} />
-    {schedules.length ? <div className="schedule-list card-list">{schedules.map((item) => { const klass = workspace.classes.find((candidate) => candidate.id === item.class_id); return <div className="schedule-row-wrap" key={item.id}><Schedule time={item.start_time.slice(0, 5)} end={item.end_time.slice(0, 5)} title={klass?.name ?? "Kelas"} teacher={item.material_plan || "Materi belum diisi"} status="Terjadwal" tone="neutral" action={() => go("journal")} />{canManage ? <button className="icon-button" onClick={async () => { if (!previewMode) { await deleteSchedule(item.id); await refresh(); notify("Jadwal dinonaktifkan"); } }} aria-label="Nonaktifkan jadwal"><Trash size={16} /></button> : null}</div>; })}</div> : <EmptyState icon={<CalendarBlank size={30} />} title="Belum ada agenda" text="Tidak ada agenda yang terdaftar pada tanggal yang dipilih." />}
-    {open ? <div className="editor-overlay" onMouseDown={(e)=>{if(e.target===e.currentTarget)setOpen(null)}} role="dialog" aria-modal="true" aria-label="Tambah jadwal"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">JADWAL MENGAJI</span><h2>Tambah agenda</h2></div><button className="icon-button" onClick={() => setOpen(null)} aria-label="Tutup"><X size={19}/></button></div><label className="field"><span>Tanggal</span><KeyboardInput type="date" value={activeDate} onChange={(event)=>setSelectedDate(event.target.value)}/></label><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{workspace.classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><div className="form-grid two"><label className="field"><span>Mulai</span><KeyboardInput type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="field"><span>Selesai</span><KeyboardInput type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div><label className="field"><span>Materi rencana</span><KeyboardTextarea value={materialPlan} onChange={(event) => setMaterialPlan(event.target.value)} rows={3} placeholder="Materi yang akan diajarkan" /></label><label className="switch-row"><span><strong>Jadikan jadwal rutin</strong><small>Berulang setiap minggu pada hari yang sama</small></span><span className="status success">Aktif</span></label><button className="primary-button" disabled={saving || !classId} onClick={() => void submitSchedule()}>{saving ? "Menyimpan…" : "Simpan agenda"}</button></section></div> : null}
+    <PageHeader title="Jadwal Mengaji" subtitle={regionalRole ? "Pilih kelompok dan kelas untuk melihat kalender agenda yang spesifik." : canManage ? "Atur agenda rutin kelas dalam kelompok." : "Pantau agenda kelas dalam satu bulan."} action={canManage ? <button className="primary-icon" onClick={() => setOpen("schedule")} aria-label="Tambah jadwal"><Plus size={20} /></button> : undefined} />
+    <div className="agenda-scope-filter">
+      {regionalRole ? <label><span>Kelompok</span><select value={groupId} onChange={event => { setGroupId(event.target.value); setClassId(""); }}>{workspace.groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label> : <div className="agenda-scope-summary"><span>Kelompok</span><strong>{selectedGroup?.name ?? "Belum tersedia"}</strong></div>}
+      <label><span>Kelas</span><select value={classId} onChange={event => setClassId(event.target.value)} disabled={!visibleClasses.length}>{visibleClasses.length ? visibleClasses.map(item => <option value={item.id} key={item.id}>{item.name}</option>) : <option value="">Belum ada kelas</option>}</select></label>
+      <div className="agenda-scope-summary"><span>Kalender aktif</span><strong>{selectedClass?.name ?? "Pilih kelas"}</strong><small>{selectedGroup?.name ?? "Kelompok belum dipilih"}</small></div>
+    </div>
+
+    {classId ? <>
+      <section className="agenda-calendar-shell">
+        <div className="calendar-head"><button className="icon-button" onClick={() => moveMonth(-1)} aria-label="Bulan sebelumnya">‹</button><strong>{new Intl.DateTimeFormat("id-ID",{month:"long",year:"numeric"}).format(calendarMonth)}</strong><button className="icon-button" onClick={() => moveMonth(1)} aria-label="Bulan berikutnya">›</button></div>
+        <div className="month-calendar"><div className="calendar-weekdays">{["Min","Sen","Sel","Rab","Kam","Jum","Sab"].map(d=><span key={d}>{d}</span>)}</div><div className="calendar-grid">{days.map((date) => {
+          const key = localDateKey(date);
+          const daySchedules = classSchedule.filter(item => item.weekday === date.getDay());
+          return <button key={key} className={cx(activeDate===key&&"active",localDateKey(today)===key&&"today",date.getMonth()!==calendarMonth.getMonth()&&"outside")} onClick={()=>setSelectedDate(key)} aria-label={new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(date)}>
+            <span className="calendar-date-number">{date.getDate()}</span>
+            {daySchedules.length ? <span className="calendar-agenda-preview">{daySchedules.slice(0,2).map(item => <em key={item.id}>{selectedClass?.name ?? "Agenda"}</em>)}{daySchedules.length > 2 ? <small>+{daySchedules.length - 2}</small> : null}</span> : null}
+          </button>;
+        })}</div></div>
+      </section>
+      <SectionTitle title={`${schedules.length} agenda • ${selectedClass?.name ?? "Kelas"} • ${new Intl.DateTimeFormat("id-ID",{dateStyle:"full"}).format(activeDay)}`} />
+      {schedules.length ? <div className="schedule-list card-list">{schedules.map((item) => <div className="schedule-row-wrap" key={item.id}><Schedule time={item.start_time.slice(0, 5)} end={item.end_time.slice(0, 5)} title={selectedClass?.name ?? "Kelas"} teacher={item.material_plan || "Materi belum diisi"} status="Terjadwal" tone="neutral" action={() => go("journal")} />{canManage ? <button className="icon-button" onClick={async () => { if (!previewMode) { await deleteSchedule(item.id); await refresh(); notify("Jadwal dinonaktifkan"); } }} aria-label="Nonaktifkan jadwal"><Trash size={16} /></button> : null}</div>)}</div> : <EmptyState icon={<CalendarBlank size={30} />} title="Belum ada agenda" text="Tidak ada agenda pada kelas dan tanggal yang dipilih." />}
+    </> : <EmptyState icon={<CalendarBlank size={30}/>} title="Pilih kelas" text="Kalender baru ditampilkan setelah kelompok dan kelas tersedia." />}
+
+    {open ? <div className="editor-overlay" onMouseDown={(e)=>{if(e.target===e.currentTarget)setOpen(null)}} role="dialog" aria-modal="true" aria-label="Tambah jadwal"><section className="editor-panel"><div className="editor-head"><div><span className="eyebrow">JADWAL MENGAJI</span><h2>Tambah agenda</h2></div><button className="icon-button" onClick={() => setOpen(null)} aria-label="Tutup"><X size={19}/></button></div><label className="field"><span>Tanggal</span><KeyboardInput type="date" value={activeDate} onChange={(event)=>setSelectedDate(event.target.value)}/></label><label className="field"><span>Kelas</span><select value={classId} onChange={(event) => setClassId(event.target.value)}>{visibleClasses.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><div className="form-grid two"><label className="field"><span>Mulai</span><KeyboardInput type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label className="field"><span>Selesai</span><KeyboardInput type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div><label className="field"><span>Materi rencana</span><KeyboardTextarea value={materialPlan} onChange={(event) => setMaterialPlan(event.target.value)} rows={3} placeholder="Materi yang akan diajarkan" /></label><label className="switch-row"><span><strong>Jadikan jadwal rutin</strong><small>Berulang setiap minggu pada hari yang sama</small></span><span className="status success">Aktif</span></label><button className="primary-button" disabled={saving || !classId} onClick={() => void submitSchedule()}>{saving ? "Menyimpan…" : "Simpan agenda"}</button></section></div> : null}
   </>;
 }
 
