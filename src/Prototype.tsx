@@ -20,6 +20,7 @@ import {
   FilePpt,
   Gear,
   House,
+  Info,
   List,
   MagnifyingGlass,
   Moon,
@@ -43,8 +44,9 @@ import { AttendanceWorkspace, PptTemplateManager, StudentDatabaseHub } from "./o
 import { ProfessionalWordReport } from "./word-report";
 import { ProfessionalPptReport } from "./ppt-report";
 import { RegionalJournalMonitor, RegionalMonitoringHome, RegionStructureManager } from "./region-monitoring";
+import { SuperAdminAI, SystemInformation } from "./superadmin-tools";
 
-type Screen = "home" | "agenda" | "attendance" | "journal" | "students" | "targets" | "reports" | "team" | "chat" | "settings" | "region" | "admin";
+type Screen = "home" | "agenda" | "attendance" | "journal" | "students" | "targets" | "reports" | "team" | "chat" | "settings" | "region" | "admin" | "ai" | "info";
 type Role = "Pengajar" | "PJ Kelompok" | "Admin Desa" | "Admin Daerah" | "Super Admin";
 type Attendance = "H" | "I" | "A";
 
@@ -71,7 +73,9 @@ const desktopNavItems = [
 ];
 
 const superAdminItem = { id: "admin" as Screen, label: "Super Admin", icon: UserCircle, hint: "Akun, akses, dan login" };
-const maintenanceMenuItems = [superAdminItem, menuItems.find((item) => item.id === "settings")!];
+const superAdminAiItem = { id: "ai" as Screen, label: "AI Sistem", icon: ChatCircleDots, hint: "Tanya sistem dan data agregat" };
+const superAdminInfoItem = { id: "info" as Screen, label: "Informasi", icon: Info, hint: "Informasi dan kondisi web" };
+const maintenanceMenuItems = [superAdminItem, superAdminAiItem, superAdminInfoItem];
 
 const demoStudents = [
   { id: 1, name: "Ahmad Fauzan", grade: "Kelas 1 SD", initials: "AF", active: true },
@@ -174,14 +178,14 @@ export default function Prototype() {
   }
 
   const roleScreens: Record<Role, Screen[]> = {
-    "Super Admin": ["home", "admin", "settings"],
+    "Super Admin": ["home", "admin", "ai", "info"],
     "Admin Daerah": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "region", "team", "chat", "settings"],
     "Admin Desa": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "region", "team", "chat", "settings"],
     "PJ Kelompok": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "team", "chat", "settings"],
     "Pengajar": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "chat", "settings"],
   };
   const allowedIds = roleScreens[role];
-  const allowedNavigation = role === "Super Admin" ? [{ ...navItems[0] }, superAdminItem, menuItems.find((item) => item.id === "settings")!] : desktopNavItems.filter((item) => allowedIds.includes(item.id));
+  const allowedNavigation = role === "Super Admin" ? [{ ...navItems[0] }, ...maintenanceMenuItems] : desktopNavItems.filter((item) => allowedIds.includes(item.id));
   const allowedMenuItems = role === "Super Admin" ? maintenanceMenuItems : menuItems.filter((item) => allowedIds.includes(item.id));
   const signOut = async () => { setMenuOpen(false); setNotificationsOpen(false); await supabase?.auth.signOut(); };
   const scopeType = role === "Admin Daerah" ? "DAERAH" : role === "Admin Desa" ? "DESA" : role === "PJ Kelompok" || role === "Pengajar" ? "KELOMPOK" : "PLATFORM";
@@ -233,10 +237,10 @@ export default function Prototype() {
       </header>
 
       <MobileScroll className="app-screen">
-        <main className={cx("screen-content", `screen-${screen}`)} data-testid="one-pro-app">
+        <main className={cx("screen-content", `screen-${screen}`)} data-testid="one-pro-app" data-scroll-drag="ignore">
           {dataState === "loading" ? <div className="data-sync" role="status">Menyinkronkan data…</div> : null}
           {screen === "home" ? role === "Super Admin" ? <SuperAdminHome go={go} /> : <Home role={role} setRole={setRole} go={go} previewMode={previewMode} workspace={workspace} notify={notify} /> : null}
-          {screen === "agenda" ? <Agenda notify={notify} go={go} workspace={workspace} refresh={refreshWorkspace} userId={authUser?.id} previewMode={previewMode} canManage={role === "PJ Kelompok"} /> : null}
+          {screen === "agenda" ? <Agenda notify={notify} go={go} workspace={workspace} refresh={refreshWorkspace} userId={authUser?.id} previewMode={previewMode} canManage={role === "PJ Kelompok"} role={role} /> : null}
           {screen === "attendance" ? <AttendanceWorkspace notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} /> : null}
           {screen === "journal" ? (role === "Admin Daerah" || role === "Admin Desa" ? <RegionalJournalMonitor notify={notify} workspace={workspace} previewMode={previewMode} role={role} /> : <JournalWorkspace notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} />) : null}
           {screen === "students" ? <StudentDatabaseHub notify={notify} workspace={workspace} refresh={refreshWorkspace} role={role} previewMode={previewMode}><Students notify={notify} workspace={workspace} refresh={refreshWorkspace} previewMode={previewMode} role={role} /></StudentDatabaseHub> : null}
@@ -245,6 +249,8 @@ export default function Prototype() {
           {screen === "region" && (role === "Admin Daerah" || role === "Admin Desa") ? <RegionStructureManager notify={notify} workspace={workspace} refresh={refreshWorkspace} role={role} previewMode={previewMode} /> : null}
           {screen === "team" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} /> : null}
           {screen === "admin" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} superView /> : null}
+          {screen === "ai" && role === "Super Admin" ? <SuperAdminAI notify={notify} /> : null}
+          {screen === "info" && role === "Super Admin" ? <SystemInformation workspace={workspace} /> : null}
           {screen === "chat" ? <Chat notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} /> : null}
           {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => void signOut()} role={role} workspace={workspace} /> : null}
         </main>
@@ -286,7 +292,7 @@ function SuperAdminHome({ go }: { go: (screen: Screen) => void }) {
     <section className="focus-panel maintenance-hero"><div className="focus-head"><div><span>STATUS PLATFORM</span><strong>Berjalan normal</strong><small>Data operasional tetap dikelola oleh Daerah, Desa, dan Kelompok.</small></div><CheckCircle size={27} weight="fill" /></div></section>
     <section className="metric-strip"><Metric value="Aktif" label="Supabase" /><Metric value="Ready" label="Deployment" /><Metric value="0" label="Gangguan" /></section>
     <SectionTitle title="Pemeliharaan utama" />
-    <div className="action-list"><ActionRow icon={<UserCircle />} title="Kelola akun dan akses" meta="Buat, ubah, nonaktifkan, atau hapus user" onClick={() => go("admin")} /><ActionRow icon={<ChartLineUp />} title="Riwayat aktivitas login" meta="Pantau login dan perubahan akun" onClick={() => go("admin")} /><ActionRow icon={<Gear />} title="Pengaturan platform" meta="Tema, koneksi, dan konfigurasi web" onClick={() => go("settings")} /></div>
+    <div className="action-list"><ActionRow icon={<UserCircle />} title="Kelola akun dan akses" meta="Buat, ubah, nonaktifkan, atau hapus user" onClick={() => go("admin")} /><ActionRow icon={<ChartLineUp />} title="Riwayat aktivitas login" meta="Pantau login dan perubahan akun" onClick={() => go("admin")} /><ActionRow icon={<ChatCircleDots />} title="AI Sistem" meta="Tanya fungsi sistem dan data agregat ONE PRO" onClick={() => go("ai")} /><ActionRow icon={<Info />} title="Informasi web" meta="Lihat struktur, koneksi, teknologi, dan kondisi web" onClick={() => go("info")} /></div>
     <div className="info-callout"><WarningCircle size={19} /><span><strong>Data operasional dipisahkan</strong><small>Super Admin tidak mengisi presensi, jurnal, target, atau laporan. Akses data tersebut diberikan melalui akun tingkat wilayah.</small></span></div>
   </>;
 }
