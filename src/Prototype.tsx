@@ -111,27 +111,69 @@ export default function Prototype() {
   }, []);
 
   useEffect(() => {
-    if (!supabase || previewMode) return;
-    supabase.auth.getUser().then(({ data }) => {
-      setAuthUser(data.user ?? null);
+    if (!supabase || previewMode) {
       setAuthReady(true);
-    });
+      return;
+    }
+    let active = true;
+    const fallback = window.setTimeout(() => {
+      if (!active) return;
+      setAuthUser(null);
+      setAuthReady(true);
+      setLoginMessage("Pemeriksaan sesi terlalu lama. Silakan masuk kembali.");
+    }, 6000);
+
+    void supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) console.warn("Session bootstrap:", error.message);
+        setAuthUser(data.session?.user ?? null);
+      })
+      .catch((error) => {
+        console.warn("Session bootstrap failed:", error);
+        if (active) setAuthUser(null);
+      })
+      .finally(() => {
+        if (!active) return;
+        window.clearTimeout(fallback);
+        setAuthReady(true);
+      });
+
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      window.clearTimeout(fallback);
       setAuthUser(session?.user ?? null);
       setAuthReady(true);
     });
-    return () => data.subscription.unsubscribe();
+
+    return () => {
+      active = false;
+      window.clearTimeout(fallback);
+      data.subscription.unsubscribe();
+    };
   }, [previewMode]);
 
   useEffect(() => {
     if (!supabase || !authUser || previewMode) return;
+    let active = true;
     setAccessReady(false);
-    supabase.from("memberships").select("role").eq("user_id", authUser.id).eq("is_active", true).limit(1).maybeSingle()
+    const timeout = window.setTimeout(() => {
+      if (!active) return;
+      setLoginMessage("Koneksi akun terlalu lama. Silakan masuk kembali.");
+      setAuthUser(null);
+      setAccessReady(false);
+      void supabase.auth.signOut().catch(console.error);
+    }, 8000);
+
+    void supabase.from("memberships").select("role").eq("user_id", authUser.id).eq("is_active", true).limit(1).maybeSingle()
       .then(async ({ data, error }) => {
+        if (!active) return;
+        window.clearTimeout(timeout);
         const roles: Record<string, Role> = { super_admin: "Super Admin", admin_daerah: "Admin Daerah", admin_desa: "Admin Desa", pj_kelompok: "PJ Kelompok", pengajar: "Pengajar" };
         if (error || !data?.role || !roles[data.role]) {
           setLoginMessage("Akun tidak aktif atau belum memiliki akses. Hubungi Super Admin.");
-          await supabase?.auth.signOut();
+          setAuthUser(null);
+          await supabase.auth.signOut().catch(console.error);
           return;
         }
         setRole(roles[data.role]);
@@ -141,7 +183,20 @@ export default function Prototype() {
           sessionStorage.setItem(marker, "1");
           void manageAccount({ action: "record-login" }).catch(console.error);
         }
+      })
+      .catch((error) => {
+        if (!active) return;
+        window.clearTimeout(timeout);
+        console.error("Membership bootstrap:", error);
+        setLoginMessage("Akses akun gagal diperiksa. Silakan masuk kembali.");
+        setAuthUser(null);
+        void supabase.auth.signOut().catch(console.error);
       });
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
   }, [authUser, previewMode]);
 
   const refreshWorkspace = async () => {
@@ -1156,9 +1211,19 @@ function AuthScreen({ ready, externalMessage, clearExternalMessage }: { ready: b
     clearExternalMessage();
     setLoading(true);
     setMessage(null);
-    const result = await supabase.auth.signInWithPassword({ email: `${username}@accounts.onepro.local`, password });
-    setLoading(false);
-    if (result.error) setMessage("Username atau password salah.");
+    try {
+      const result = await Promise.race([
+        supabase.auth.signInWithPassword({ email: `${username}@accounts.onepro.local`, password }),
+        new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("LOGIN_TIMEOUT")), 12000)),
+      ]);
+      if (result.error) setMessage("Username atau password salah.");
+    } catch (error) {
+      setMessage(error instanceof Error && error.message === "LOGIN_TIMEOUT"
+        ? "Koneksi login terlalu lama. Coba lagi."
+        : "Login gagal terhubung. Periksa internet lalu coba lagi.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return <main className="auth-screen" data-scroll-drag="ignore">
