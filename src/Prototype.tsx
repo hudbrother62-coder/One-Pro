@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "@fontsource-variable/plus-jakarta-sans";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { createChatThread, deleteSchedule, deleteTarget, emptyWorkspace, loadAccounts, loadAttendanceSummary, loadChat, loadTargets, loadWorkspace, manageAccount, restoreScheduleDate, saveAttendance, saveClass, saveDailyJournal, saveSchedule, saveStudent, saveTarget, sendChatMessage, setStudentStatus, skipScheduleDate, type AccountRole, type ChatMessage, type ChatThread, type LoginActivity, type WorkspaceAccount, type WorkspaceData, type WorkspaceStudent, type WorkspaceTarget } from "./lib/data";
+import { createChatThread, deleteSchedule, deleteTarget, emptyWorkspace, importStudents, loadAccounts, loadAttendanceSummary, loadChat, loadTargets, loadWorkspace, manageAccount, restoreScheduleDate, saveAttendance, saveClass, saveDailyJournal, saveSchedule, saveStudent, saveTarget, sendChatMessage, setStudentStatus, skipScheduleDate, type AccountRole, type ChatMessage, type ChatThread, type LoginActivity, type WorkspaceAccount, type WorkspaceData, type WorkspaceStudent, type WorkspaceTarget } from "./lib/data";
 import {
   ArrowLeft,
   Bell,
+  BookOpen,
   Buildings,
   ChatCircleDots,
   CalendarBlank,
@@ -45,8 +46,10 @@ import { ProfessionalWordReport } from "./word-report";
 import { ProfessionalPptReport } from "./ppt-report";
 import { RegionalJournalMonitor, RegionalMonitoringHome, RegionStructureManager } from "./region-monitoring";
 import { SuperAdminAI, SystemInformation } from "./superadmin-tools";
+import { downloadStudentImportTemplate, parseStudentImportFile, type StudentImportPreview } from "./student-import";
+import { UserGuide } from "./user-guide";
 
-type Screen = "home" | "agenda" | "attendance" | "journal" | "students" | "targets" | "reports" | "team" | "chat" | "settings" | "region" | "admin" | "ai" | "info";
+type Screen = "home" | "agenda" | "attendance" | "journal" | "students" | "targets" | "reports" | "team" | "chat" | "settings" | "region" | "admin" | "ai" | "info" | "guide";
 type Role = "Pengajar" | "PJ Kelompok" | "Admin Desa" | "Admin Daerah" | "Super Admin";
 type Attendance = "H" | "I" | "A";
 
@@ -64,7 +67,8 @@ const menuItems: { id: Screen; label: string; icon: typeof House; hint: string }
   { id: "region", label: "Wilayah", icon: Buildings, hint: "Desa dan kelompok" },
   { id: "team", label: "Tim & Akses", icon: Users, hint: "Anggota dan login" },
   { id: "chat", label: "Komunikasi", icon: Bell, hint: "Chat dan pengumuman" },
-  { id: "settings", label: "Pengaturan", icon: Gear, hint: "Profil, AI, dan tema" },
+  { id: "settings", label: "Pengaturan", icon: Gear, hint: "Profil dan tema" },
+  { id: "guide", label: "Panduan", icon: BookOpen, hint: "Cara menggunakan ONE PRO" },
 ];
 
 const desktopNavItems = [
@@ -75,7 +79,8 @@ const desktopNavItems = [
 const superAdminItem = { id: "admin" as Screen, label: "Super Admin", icon: UserCircle, hint: "Akun, akses, dan login" };
 const superAdminAiItem = { id: "ai" as Screen, label: "AI Sistem", icon: ChatCircleDots, hint: "Tanya sistem dan data agregat" };
 const superAdminInfoItem = { id: "info" as Screen, label: "Informasi", icon: Info, hint: "Informasi dan kondisi web" };
-const maintenanceMenuItems = [superAdminItem, superAdminAiItem, superAdminInfoItem];
+const superAdminGuideItem = { id: "guide" as Screen, label: "Panduan", icon: BookOpen, hint: "Cara menggunakan ONE PRO" };
+const maintenanceMenuItems = [superAdminItem, superAdminAiItem, superAdminInfoItem, superAdminGuideItem];
 
 const demoStudents = [
   { id: 1, name: "Ahmad Fauzan", grade: "Kelas 1 SD", initials: "AF", active: true },
@@ -237,11 +242,11 @@ export default function Prototype() {
   }
 
   const roleScreens: Record<Role, Screen[]> = {
-    "Super Admin": ["home", "admin", "ai", "info"],
-    "Admin Daerah": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "region", "team", "chat", "settings"],
-    "Admin Desa": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "region", "team", "chat", "settings"],
-    "PJ Kelompok": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "team", "chat", "settings"],
-    "Pengajar": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "chat", "settings"],
+    "Super Admin": ["home", "admin", "ai", "info", "guide"],
+    "Admin Daerah": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "region", "team", "chat", "settings", "guide"],
+    "Admin Desa": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "region", "team", "chat", "settings", "guide"],
+    "PJ Kelompok": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "team", "chat", "settings", "guide"],
+    "Pengajar": ["home", "agenda", "attendance", "reports", "journal", "students", "targets", "chat", "settings", "guide"],
   };
   const allowedIds = roleScreens[role];
   const allowedNavigation = role === "Super Admin" ? [{ ...navItems[0] }, ...maintenanceMenuItems] : desktopNavItems.filter((item) => allowedIds.includes(item.id));
@@ -310,6 +315,7 @@ export default function Prototype() {
           {screen === "admin" ? <Team notify={notify} workspace={workspace} role={role} previewMode={previewMode} superView /> : null}
           {screen === "ai" && role === "Super Admin" ? <SuperAdminAI notify={notify} /> : null}
           {screen === "info" && role === "Super Admin" ? <SystemInformation workspace={workspace} /> : null}
+          {screen === "guide" ? <UserGuide role={role} /> : null}
           {screen === "chat" ? <Chat notify={notify} workspace={workspace} userId={authUser?.id} previewMode={previewMode} role={role} /> : null}
           {screen === "settings" ? <Settings dark={dark} setDark={setDark} notify={notify} onSignOut={() => void signOut()} role={role} workspace={workspace} /> : null}
         </main>
@@ -769,6 +775,9 @@ function Students({ notify, workspace, refresh, previewMode, role }: { notify: (
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<WorkspaceStudent | "new" | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importPreview, setImportPreview] = useState<StudentImportPreview | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const canManage = role === "PJ Kelompok";
   const regionalRole = role === "Admin Daerah" || role === "Admin Desa";
   const [groupFilter, setGroupFilter] = useState(workspace.groups[0]?.id ?? "");
@@ -783,6 +792,36 @@ function Students({ notify, workspace, refresh, previewMode, role }: { notify: (
   const inactiveCount = liveStudents.filter(student => student.status !== "active").length;
   const selectedGroup = workspace.groups.find(item => item.id === groupFilter);
   const selectedVillage = workspace.villages.find(item => item.id === selectedGroup?.village_id);
+  const importGroupId = workspace.groups[0]?.id ?? "";
+
+  const chooseImportFile = async (file: File) => {
+    if (!importGroupId) { notify("Kelompok belum tersedia untuk import siswa"); return; }
+    try {
+      const preview = await parseStudentImportFile(file, importGroupId, workspace.students);
+      if (!preview.totalRows && !preview.issues.length) preview.issues.push({ row: 0, message: "File belum berisi data siswa." });
+      setImportPreview(preview);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "File Excel gagal dibaca");
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  };
+
+  const commitImport = async () => {
+    if (!importPreview || importPreview.issues.length || !importPreview.rows.length) return;
+    if (previewMode) { notify(`Mode pratinjau: ${importPreview.rows.length} siswa siap diimpor`); setImportPreview(null); return; }
+    setImporting(true);
+    try {
+      await importStudents(importPreview.rows);
+      await refresh();
+      notify(`${importPreview.rows.length} siswa berhasil diimpor`);
+      setImportPreview(null);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Import siswa gagal");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return <>
     <PageHeader title="Database Anak" subtitle={regionalRole ? `${selectedGroup?.name ?? "Kelompok"} · ${activeCount} aktif · ${inactiveCount} nonaktif` : `${activeCount} aktif • ${inactiveCount} nonaktif`} action={canManage ? <button className="primary-icon" onClick={() => setEditing("new")} aria-label="Tambah anak"><Plus size={20} /></button> : undefined} />
@@ -791,8 +830,25 @@ function Students({ notify, workspace, refresh, previewMode, role }: { notify: (
       <div><span>Data yang ditampilkan</span><strong>{selectedGroup?.name ?? "Pilih kelompok"}</strong><small>{selectedVillage?.name ?? ""}</small></div>
     </div> : null}
     <div className="toolbar"><label className="search"><MagnifyingGlass size={17} /><KeyboardInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama anak" /></label><button className={cx("photo-toggle", showPhotos && "active")} onClick={() => setShowPhotos((value) => !value)}><UserCircle size={18} />Foto</button></div>
+    {canManage ? <section className="excel-import-card">
+      <div><span className="excel-import-icon"><UploadSimple size={20}/></span><span><strong>Import siswa dari Excel</strong><small>Gunakan template resmi agar data dapat divalidasi sebelum masuk database.</small></span></div>
+      <div className="excel-import-actions">
+        <button onClick={() => void downloadStudentImportTemplate()}><DownloadSimple size={17}/>Template Excel</button>
+        <button className="primary" onClick={() => importInputRef.current?.click()}><UploadSimple size={17}/>Upload Excel</button>
+      </div>
+      <input ref={importInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={event=>{const file=event.target.files?.[0];if(file)void chooseImportFile(file);}}/>
+    </section> : null}
     {filtered.length ? <div className="student-list">{filtered.map((student) => <button className="student-row" key={student.id} onClick={() => { if (canManage) setEditing(student); }} aria-label={canManage ? `Edit ${student.full_name}` : `Data ${student.full_name}`}>{showPhotos && student.show_photo ? <Avatar initials={initialsFor(student.full_name)} muted={student.status !== "active"} /> : null}<span><strong>{student.full_name}</strong><small>{gradeLabel(student.school_grade)} • {student.status === "active" ? "Aktif" : "Nonaktif — riwayat tetap tersimpan"}</small></span>{canManage ? <PencilSimple size={17} /> : null}</button>)}</div> : <EmptyState icon={<Student size={30} />} title="Belum ada data anak" text={canManage ? "Tambahkan anak atau impor data Excel." : "Belum ada data siswa pada kelompok yang dipilih."} />}
-    {canManage ? <div className="split-actions"><button className="secondary-button" onClick={() => notify("Template Excel siap diunduh")}><DownloadSimple size={17} />Template</button><button className="secondary-button" onClick={() => notify("Pilih file Excel untuk diimpor")}><UploadSimple size={17} />Import</button></div> : <div className="info-callout"><WarningCircle size={18}/><span><strong>Mode monitoring</strong><small>Perubahan data anak dilakukan oleh PJ Kelompok. Admin wilayah memantau per kelompok.</small></span></div>}
+    {!canManage ? <div className="info-callout"><WarningCircle size={18}/><span><strong>Mode monitoring</strong><small>Perubahan data anak dilakukan oleh PJ Kelompok. Admin wilayah memantau per kelompok.</small></span></div> : null}
+
+    {importPreview ? <div className="editor-overlay" onMouseDown={event=>{if(event.target===event.currentTarget&&!importing)setImportPreview(null)}} role="dialog" aria-modal="true" aria-label="Validasi import Excel"><section className="editor-panel student-import-panel">
+      <div className="editor-head"><div><span className="eyebrow">IMPORT EXCEL</span><h2>Validasi data siswa</h2></div><button className="icon-button" disabled={importing} onClick={()=>setImportPreview(null)} aria-label="Tutup"><X size={19}/></button></div>
+      <div className="import-file-summary"><div><strong>{importPreview.fileName}</strong><small>{importPreview.totalRows} baris data terdeteksi</small></div><div className={cx("import-status-pill", importPreview.issues.length ? "error" : "success")}>{importPreview.issues.length ? `${importPreview.issues.length} masalah` : `${importPreview.rows.length} valid`}</div></div>
+      {importPreview.issues.length ? <div className="import-issues"><strong>Perbaiki file sebelum import</strong>{importPreview.issues.slice(0,12).map((issue,index)=><article key={`${issue.row}-${issue.field}-${index}`}><WarningCircle size={16}/><span><b>{issue.row ? `Baris ${issue.row}` : "File"}{issue.field ? ` · ${issue.field}` : ""}</b><small>{issue.message}</small></span></article>)}{importPreview.issues.length>12?<p>+ {importPreview.issues.length-12} masalah lainnya.</p>:null}</div> : <div className="import-ready"><CheckCircle size={21}/><span><strong>File siap diimpor</strong><small>{importPreview.rows.length} siswa akan ditambahkan ke {workspace.groups[0]?.name ?? "kelompok aktif"}. Sistem tidak mengubah siswa yang sudah ada.</small></span></div>}
+      <div className="import-preview-list"><div><strong>Pratinjau</strong><small>5 baris pertama</small></div>{importPreview.rows.slice(0,5).map((row,index)=><article key={`${row.full_name}-${index}`}><span><strong>{row.full_name}</strong><small>{gradeLabel(row.school_grade)} · {row.status==="active"?"Aktif":"Nonaktif"}</small></span><em>{row.birth_date || "Tanggal lahir kosong"}</em></article>)}</div>
+      <div className="editor-actions"><button className="secondary-button" disabled={importing} onClick={()=>importInputRef.current?.click()}><UploadSimple size={16}/>Pilih file lain</button><button className="primary-button" disabled={importing||Boolean(importPreview.issues.length)||!importPreview.rows.length} onClick={()=>void commitImport()}>{importing?"Mengimpor…":`Import ${importPreview.rows.length} siswa`}</button></div>
+    </section></div> : null}
+
     {canManage && editing ? <StudentEditor student={editing === "new" ? null : editing} groups={workspace.groups} saving={saving} onClose={() => setEditing(null)} onSave={async (values) => {
       if (previewMode) { notify("Mode pratinjau: data tidak disimpan"); setEditing(null); return; }
       setSaving(true);
