@@ -184,6 +184,19 @@ export default function Prototype() {
   const allowedNavigation = role === "Super Admin" ? [{ ...navItems[0] }, superAdminItem, menuItems.find((item) => item.id === "settings")!] : desktopNavItems.filter((item) => allowedIds.includes(item.id));
   const allowedMenuItems = role === "Super Admin" ? maintenanceMenuItems : menuItems.filter((item) => allowedIds.includes(item.id));
   const signOut = async () => { setMenuOpen(false); setNotificationsOpen(false); await supabase?.auth.signOut(); };
+  const scopeType = role === "Admin Daerah" ? "DAERAH" : role === "Admin Desa" ? "DESA" : role === "PJ Kelompok" || role === "Pengajar" ? "KELOMPOK" : "PLATFORM";
+  const scopeName = role === "Admin Daerah"
+    ? (workspace.areas[0]?.name ?? "Wilayah")
+    : role === "Admin Desa"
+      ? (workspace.villages[0]?.name ?? "Desa")
+      : role === "PJ Kelompok" || role === "Pengajar"
+        ? (workspace.groups[0]?.name ?? "Kelompok")
+        : "One Pro";
+  const scopeParent = role === "Admin Desa"
+    ? (workspace.areas[0]?.name ? `Daerah ${workspace.areas[0].name}` : role)
+    : role === "PJ Kelompok" || role === "Pengajar"
+      ? (workspace.villages[0]?.name ? `Desa ${workspace.villages[0].name}` : role)
+      : role;
 
   return (
     <div className={cx("one-pro-shell", dark && "is-dark")}>
@@ -192,7 +205,7 @@ export default function Prototype() {
           <span className="desktop-brand-logo" />
           <span><strong>One Pro</strong><small>Jurnal Digital</small></span>
         </button>
-        <div className="desktop-scope"><span>DAERAH</span><strong>Malang Timur</strong><small>{role}</small></div>
+        <div className="desktop-scope"><span>{scopeType}</span><strong>{scopeName}</strong><small>{scopeParent}</small></div>
         <nav className="desktop-nav">
           {allowedNavigation.map((item) => {
             const Icon = item.icon;
@@ -251,7 +264,7 @@ export default function Prototype() {
             <button className="mobile-nav-brand" onClick={() => go("home")}><span className="desktop-brand-logo"/><span><strong>One Pro</strong><small>Jurnal Digital</small></span></button>
             <button className="icon-button" onClick={() => setMenuOpen(false)} aria-label="Tutup navigasi"><X size={19}/></button>
           </div>
-          <div className="mobile-nav-scope"><span>AKSES AKUN</span><strong>{role}</strong><small>Daerah Malang Timur</small></div>
+          <div className="mobile-nav-scope"><span>{scopeType}</span><strong>{scopeName}</strong><small>{scopeParent}</small></div>
           <nav className="mobile-nav-list">{allowedNavigation.map((item) => { const Icon=item.icon; return <button key={item.id} className={cx(screen===item.id&&"active")} onClick={() => go(item.id)}><Icon size={20} weight={screen===item.id?"fill":"regular"}/><span>{item.label}</span><CaretRight size={15}/></button>; })}</nav>
           <button className="mobile-nav-logout" onClick={() => void signOut()}><SignOut size={18}/>Keluar akun</button>
         </aside>
@@ -279,15 +292,19 @@ function SuperAdminHome({ go }: { go: (screen: Screen) => void }) {
 }
 
 function Home({ role, setRole, go, previewMode, workspace, notify }: { role: Role; setRole: (role: Role) => void; go: (screen: Screen) => void; previewMode: boolean; workspace: WorkspaceData; notify: (message: string) => void }) {
+  if (role === "Admin Daerah" || role === "Admin Desa") {
+    return <>{previewMode ? <div className="context-row"><div><span className="eyebrow">PRATINJAU ROLE</span><h1>Monitoring wilayah</h1></div><select value={role} onChange={(event) => setRole(event.target.value as Role)} aria-label="Pratinjau peran">{(["Pengajar", "PJ Kelompok", "Admin Desa", "Admin Daerah", "Super Admin"] as Role[]).map((item) => <option key={item}>{item}</option>)}</select></div> : null}<RegionalMonitoringHome role={role} go={go} workspace={workspace} previewMode={previewMode} notify={notify} /></>;
+  }
+  const groupName = workspace.groups[0]?.name ?? "Kelompok";
+  const areaName = workspace.areas[0]?.name ?? "Malang Timur";
   return <>
     <div className="context-row">
-      <div><span className="eyebrow">MALANG TIMUR</span><h1>{role === "Pengajar" ? "Kelas hari ini" : role === "PJ Kelompok" ? "Mangliawan Utara" : "Pantauan wilayah"}</h1></div>
+      <div><span className="eyebrow">{areaName.toUpperCase()}</span><h1>{role === "Pengajar" ? "Kelas hari ini" : groupName}</h1></div>
       {previewMode ? <select value={role} onChange={(event) => setRole(event.target.value as Role)} aria-label="Pratinjau peran">
         {(["Pengajar", "PJ Kelompok", "Admin Desa", "Admin Daerah", "Super Admin"] as Role[]).map((item) => <option key={item}>{item}</option>)}
       </select> : <span className="role-badge">{role}</span>}
     </div>
-
-    {role === "Pengajar" || role === "PJ Kelompok" ? <OperationalHome go={go} workspace={workspace} previewMode={previewMode} /> : (role === "Admin Daerah" || role === "Admin Desa" ? <RegionalMonitoringHome role={role} go={go} workspace={workspace} previewMode={previewMode} notify={notify} /> : null)}
+    <OperationalHome go={go} workspace={workspace} previewMode={previewMode} />
   </>;
 }
 
